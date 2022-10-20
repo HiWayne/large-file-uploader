@@ -17,7 +17,7 @@ const DemoWrapper = styled.div`
   height: 100vh;
 `;
 
-const Nav = styled.div`
+export const Nav = styled.div`
   padding-top: 40px;
   display: flex;
   align-items: center;
@@ -91,7 +91,7 @@ const UploadItem = ({ uploader }: { uploader: UploaderData }) => {
         <p>结果: {uploader.result}；</p>
       </div>
       <div>
-        {isComplete ? null : (
+        {isComplete || isInitialization ? null : (
           <button
             style={
               isFailure
@@ -102,16 +102,10 @@ const UploadItem = ({ uploader }: { uploader: UploaderData }) => {
                 : undefined
             }
             onClick={
-              isSuspended || isFailure || isInitialization
-                ? uploader.resume
-                : uploader.pause
+              isSuspended || isFailure ? uploader.resume : uploader.pause
             }
           >
-            {isSuspended || isInitialization
-              ? "开始"
-              : isFailure
-              ? "恢复"
-              : "暂停"}
+            {isSuspended ? "开始" : isFailure ? "恢复" : "暂停"}
           </button>
         )}
       </div>
@@ -121,6 +115,7 @@ const UploadItem = ({ uploader }: { uploader: UploaderData }) => {
 };
 
 const UploadList = styled.div`
+  margin-top: 20px;
   padding: 20px;
   border: 1px solid #888;
   border-radius: 16px;
@@ -171,11 +166,14 @@ const Demo = () => {
         // return的数据会作为下一次的customParams，这样这个文件每次upload都可以带上你需要的customParams
         return id;
       },
-      init(uploadDataList) {
+      gotCache(cacheList, uploadDataList) {
         setList(uploadDataList);
       },
       handleProcess(uploadDataList) {
         setList(uploadDataList);
+      },
+      async checkHash() {
+        return true;
       },
     });
     normalUploadRef.current = normalUploader.uploadFile;
@@ -192,7 +190,7 @@ const Demo = () => {
         // return的数据会作为下一次的customParams，这样这个文件每次upload都可以带上你需要的customParams
         return id;
       },
-      init(uploadDataList) {
+      gotCache(cacheList, uploadDataList) {
         setMaybeFailureList(uploadDataList);
       },
       handleProcess(uploadDataList) {
@@ -253,10 +251,10 @@ const Demo = () => {
           <div>
             <button onClick={handleUpload}>选择上传文件</button>
             {uploaderList.length ? (
-              <>
+              <div style={{ marginTop: "20px" }}>
                 <button onClick={pauseAll}>全部暂停</button>
                 <button onClick={resumeAll}>全部开始</button>
-              </>
+              </div>
             ) : null}
           </div>
 
@@ -271,10 +269,10 @@ const Demo = () => {
           <div>
             <button onClick={handleUploadMaybeFailure}>选择上传文件</button>
             {uploaderMaybeFailureList.length ? (
-              <>
+              <div style={{ marginTop: "20px" }}>
                 <button onClick={pauseAllMaybeFailure}>全部暂停</button>
                 <button onClick={resumeAllMaybeFailure}>全部开始</button>
-              </>
+              </div>
             ) : null}
           </div>
           <UploadList>

@@ -7,6 +7,8 @@ export interface ProgressData {
     | "suspended"
     | "cancel";
   progress: number;
+  file: File;
+  isCache?: boolean;
 }
 
 export interface ControllerData {

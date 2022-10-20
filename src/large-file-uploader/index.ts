@@ -1,5 +1,12 @@
-import { db, FileDoc } from "./storage";
+import SparkMD5 from "spark-md5";
+import { db, FileDoc } from "./utils/storage";
 import { ProgressData, UploaderData } from "./type";
+import { workerFn } from "./utils/worker";
+import {
+  createMultithread,
+  createSetTaskToMultithreading,
+  multithreading,
+} from "./utils/multithreading";
 
 interface LargeFileUploaderOptionalOptions {
   // 每个切片大小，单位字节，默认100kb
@@ -7,7 +14,7 @@ interface LargeFileUploaderOptionalOptions {
   // 最小可切片文件大小，单位字节
   minSlicedFileSize: number;
   // 每次上传的chunks数量（视后端接口而定）
-  chunksNumber: number;
+  numberOfChunks: number;
   // 失败自动重试次数
   retryCountLimit: number;
   // 是否支持多选
@@ -22,13 +29,16 @@ interface LargeFileUploaderOptionalOptions {
   immediately: boolean;
   // 文件大小限制
   sizeLimit: [number, number] | null;
+  // 线程数量
+  numberOfThreads: number;
   // 初始化完成回调
-  init: (uploadDataList: UploaderData[]) => void;
+  gotCache: (cacheList: UploaderData[], uploadDataList: UploaderData[]) => void;
   // 上传进度回调函数
   handleProcess: (uploadDataList: UploaderData[]) => void;
   error: (uploadDataList: UploaderData[]) => void;
   // 上传全部完成回调函数，result: true，data: UploaderData[]
   success: (data: { result: boolean; data: UploaderData[] }) => void;
+  checkHash: ((hash: string) => Promise<number | true>) | undefined;
 }
 
 interface LargeFileUploaderRequiredOptions<T> {
@@ -49,8 +59,8 @@ type LargeFileUploaderOptions<T> = Partial<LargeFileUploaderOptionalOptions> &
 type FullyLargeFileUploaderOptions<T> = LargeFileUploaderOptionalOptions &
   LargeFileUploaderRequiredOptions<T>;
 
-const filterUploadDataList = (list: UploaderData[]) =>
-  list.filter((uploadData) => uploadData.result !== "cancel");
+const computeUploadDataList = (list: UploaderData[]) =>
+  list.filter((uploadData) => uploadData.result !== "cancel").reverse();
 
 const autoUpload = <T>(
   start = 0,
@@ -65,7 +75,7 @@ const autoUpload = <T>(
     sliceStartRef,
     length,
     index,
-    chunksNumber,
+    numberOfChunks,
     chunks,
     customParamsRef,
     retryCountLimit,
@@ -99,7 +109,7 @@ const autoUpload = <T>(
     sliceStartRef: { current: number };
     length: number;
     index: number;
-    chunksNumber: number;
+    numberOfChunks: number;
     chunks: Blob[];
     customParamsRef: { current: T };
     retryCountLimit: number;
@@ -130,7 +140,7 @@ const autoUpload = <T>(
         sliceStartRef,
         length,
         index,
-        chunksNumber,
+        numberOfChunks,
         chunks,
         customParamsRef,
         retryCountLimit,
@@ -149,7 +159,7 @@ const autoUpload = <T>(
         result: "failure",
         progress: computeProgress(start),
       });
-      handleProcess(filterUploadDataList(currentUploadListRef.current));
+      handleProcess(computeUploadDataList(currentUploadListRef.current));
       reject(start);
     }
   };
@@ -159,7 +169,7 @@ const autoUpload = <T>(
       result: "completed",
       progress: computeProgress(length),
     });
-    handleProcess(filterUploadDataList(currentUploadListRef.current));
+    handleProcess(computeUploadDataList(currentUploadListRef.current));
     resolve(true);
     if (idRef.current !== undefined) {
       if (typeof idRef.current === "number") {
@@ -172,7 +182,7 @@ const autoUpload = <T>(
     }
     return;
   }
-  const nextStart = start + chunksNumber;
+  const nextStart = start + numberOfChunks;
   upload(
     {
       chunks: chunks.slice(start, nextStart),
@@ -191,14 +201,14 @@ const autoUpload = <T>(
           db.files.update(idRef.current, {
             result: "uploading",
             start: nextStart,
-            end: nextStart + chunksNumber,
+            end: nextStart + numberOfChunks,
             customParams: customParamsRef.current,
           });
         } else {
           currentUpdateDataRef!.current = {
             result: "uploading",
             start: nextStart,
-            end: nextStart + chunksNumber,
+            end: nextStart + numberOfChunks,
             customParams: customParamsRef.current,
           };
         }
@@ -210,7 +220,7 @@ const autoUpload = <T>(
         result: "uploading",
         progress: computeProgress(nextStart),
       });
-      handleProcess(filterUploadDataList(currentUploadListRef.current));
+      handleProcess(computeUploadDataList(currentUploadListRef.current));
       autoUpload(nextStart, {
         idRef,
         upload,
@@ -222,7 +232,7 @@ const autoUpload = <T>(
         sliceStartRef,
         length,
         index,
-        chunksNumber,
+        numberOfChunks,
         chunks,
         customParamsRef,
         retryCountLimit,
@@ -245,13 +255,13 @@ const autoUpload = <T>(
           db.files.update(idRef.current, {
             result: "failure",
             start: start,
-            end: start + chunksNumber,
+            end: start + numberOfChunks,
           });
         } else {
           currentUpdateDataRef!.current = {
             result: "failure",
             start: start,
-            end: start + chunksNumber,
+            end: start + numberOfChunks,
           };
         }
       }
@@ -262,11 +272,18 @@ const autoUpload = <T>(
 const createHiddenUploaderInput = (() => {
   let input: HTMLInputElement;
   let handleChange: (event: Event) => void;
+
+  const scriptBlob = new Blob([`(${workerFn})()`], {
+    type: "application/javascript",
+  });
+
+  const blobURL = URL.createObjectURL(scriptBlob);
+
   return <T>(
     {
       sliceSize,
       minSlicedFileSize,
-      chunksNumber,
+      numberOfChunks,
       retryCountLimit,
       multiple,
       accept,
@@ -274,13 +291,17 @@ const createHiddenUploaderInput = (() => {
       spaceName,
       immediately,
       sizeLimit,
+      numberOfThreads,
       upload,
       handleProcess,
+      checkHash,
     }: FullyLargeFileUploaderOptions<T>,
     currentUploadList: UploaderData[],
     uploadPromiseResolve: (value?: any) => void,
     uploadPromiseReject: (value?: any) => void
   ) => {
+    const workers =
+      numberOfThreads > 1 ? createMultithread(blobURL, numberOfThreads) : [];
     handleChange = async (event: Event) => {
       if (event.target) {
         const files = Array.from(
@@ -291,33 +312,17 @@ const createHiddenUploaderInput = (() => {
             : true
         );
         if (files) {
-          const chunksList = files.map((file) => {
-            const chunk = [];
-            const size = file.size;
-            if (size >= minSlicedFileSize) {
-              const sliceNumber = Math.ceil(size / sliceSize);
-              for (let i = 0; i < sliceNumber; i++) {
-                const slicedFile = file.slice(
-                  i * sliceSize,
-                  (i + 1) * sliceSize
-                );
-                chunk.push(slicedFile);
-              }
-            } else {
-              chunk.push(file);
-            }
-            return chunk;
-          });
-          const createUploaderData = (
-            index: number
-          ): ProgressData & { file: File } => ({
+          const createUploaderData = (index: number): ProgressData => ({
             result: "initialization",
             progress: 0,
             file: files[index],
           });
-          const progressList = chunksList.map((_, index) =>
-            createUploaderData(index)
-          );
+          const progressList = files.map((_, index) => {
+            const uploader = createUploaderData(index);
+            const indexInTotalList = currentUploadList.length + index;
+            currentUploadList[indexInTotalList] = uploader as any;
+            return uploader;
+          });
           const updateProgressList = (
             index: number,
             progressData: Partial<UploaderData>
@@ -328,12 +333,71 @@ const createHiddenUploaderInput = (() => {
             });
             return progressList as UploaderData[];
           };
-          const uploadList = chunksList.map((chunks, index) => {
+          handleProcess(computeUploadDataList(currentUploadList));
+          const uploadList = files.map(async (file, index) => {
+            const spark = new SparkMD5();
+            const chunks: Blob[] = [];
+            const size = file.size;
+            const sliceStartRef = { current: 0 };
             const length = chunks.length;
+            const computeProgress = (start: number) => start / length;
+
+            if (size >= minSlicedFileSize) {
+              const sliceNumber = Math.ceil(size / sliceSize);
+              const setTaskToMultithreading =
+                createSetTaskToMultithreading(workers);
+              const multithreadTasksPromise = [];
+              console.time('hash')
+              for (let i = 0; i < sliceNumber; i++) {
+                const slicedFile = file.slice(
+                  i * sliceSize,
+                  (i + 1) * sliceSize
+                );
+                chunks.push(slicedFile);
+                if (checkHash && numberOfThreads > 1) {
+                  const text = await slicedFile.text();
+                  multithreadTasksPromise[i] = setTaskToMultithreading(text);
+                } else if (checkHash && numberOfThreads <= 1) {
+                  const text = await slicedFile.text();
+                  spark.append(text);
+                }
+              }
+              if (checkHash) {
+                let md5HexHash = "";
+                if (numberOfThreads > 1) {
+                  const results = await Promise.all(multithreadTasksPromise);
+                  md5HexHash = results.reduce(
+                    (hash: string, result) => hash + result,
+                    ""
+                  );
+                } else {
+                  md5HexHash = spark.end();
+                }
+                console.timeEnd('hash')
+                const result = await checkHash(md5HexHash);
+                if (result === true) {
+                  sliceStartRef.current = length;
+                  updateProgressList(index, {
+                    result: "completed",
+                    progress: 1,
+                  });
+                  handleProcess(computeUploadDataList(currentUploadList));
+                } else if (typeof result === "number") {
+                  sliceStartRef.current = result;
+                  updateProgressList(index, {
+                    result: "initialization",
+                    progress: computeProgress(result),
+                  });
+                  handleProcess(computeUploadDataList(currentUploadList));
+                }
+              }
+            } else {
+              chunks.push(file);
+            }
+
             const _retryCountRef = { current: 0 };
             const suspendedRef = { current: false };
             const canceledRef = { current: false };
-            const sliceStartRef = { current: 0 };
             const customParamsRef: { current: T } = {
               current: undefined as any,
             };
@@ -347,7 +411,6 @@ const createHiddenUploaderInput = (() => {
               let idRef: { current: number | Promise<number> | undefined } = {
                 current: undefined,
               };
-              const computeProgress = (start: number) => start / length;
               const pause = () => {
                 suspendedRef.current = true;
                 if (progressList[index].result === "uploading") {
@@ -355,7 +418,7 @@ const createHiddenUploaderInput = (() => {
                     result: "suspended",
                     progress: computeProgress(sliceStartRef.current),
                   });
-                  handleProcess(filterUploadDataList(currentUploadList));
+                  handleProcess(computeUploadDataList(currentUploadList));
                   if (
                     idRef.current !== undefined &&
                     typeof idRef.current !== "number"
@@ -364,14 +427,14 @@ const createHiddenUploaderInput = (() => {
                       db.files.update(id, {
                         result: "suspended",
                         start: sliceStartRef.current,
-                        end: sliceStartRef.current + chunksNumber,
+                        end: sliceStartRef.current + numberOfChunks,
                       });
                     });
                   } else if (typeof idRef.current === "number") {
                     db.files.update(idRef.current, {
                       result: "suspended",
                       start: sliceStartRef.current,
-                      end: sliceStartRef.current + chunksNumber,
+                      end: sliceStartRef.current + numberOfChunks,
                     });
                   }
                 }
@@ -387,7 +450,7 @@ const createHiddenUploaderInput = (() => {
                   updateProgressList(index, {
                     result: "uploading",
                   });
-                  handleProcess(filterUploadDataList(currentUploadList));
+                  handleProcess(computeUploadDataList(currentUploadList));
                   const start = sliceStartRef.current;
                   autoUpload(start, {
                     idRef,
@@ -400,7 +463,7 @@ const createHiddenUploaderInput = (() => {
                     sliceStartRef,
                     length,
                     index,
-                    chunksNumber,
+                    numberOfChunks,
                     chunks,
                     customParamsRef,
                     retryCountLimit,
@@ -420,7 +483,7 @@ const createHiddenUploaderInput = (() => {
                 updateProgressList(index, {
                   result: "cancel",
                 });
-                handleProcess(filterUploadDataList(currentUploadList));
+                handleProcess(computeUploadDataList(currentUploadList));
                 if (
                   idRef.current !== undefined &&
                   typeof idRef.current !== "number"
@@ -438,15 +501,13 @@ const createHiddenUploaderInput = (() => {
                 resume,
                 remove,
               });
-              const indexInTotalList = currentUploadList.length + index;
-              currentUploadList[indexInTotalList] = progressList[index] as any;
-              if (offlineStorage) {
+              if (offlineStorage && sliceStartRef.current < length) {
                 idRef.current = db.files.add({
                   file: files[index],
                   chunks: chunks,
                   result: "initialization",
                   start: 0,
-                  end: chunksNumber,
+                  end: numberOfChunks,
                   customParams: customParamsRef.current,
                   spaceName: spaceName || "",
                 }) as Promise<number>;
@@ -458,12 +519,11 @@ const createHiddenUploaderInput = (() => {
                   }
                 });
               }
-              if (immediately) {
+              if (immediately && sliceStartRef.current < length) {
                 resume();
               }
             });
           });
-          handleProcess(filterUploadDataList(currentUploadList));
           const results = await Promise.all(uploadList);
           if (results.every((result, index) => result === true)) {
             uploadPromiseResolve();
@@ -511,8 +571,8 @@ const setDefaultOptions = <T>(
 ): FullyLargeFileUploaderOptions<T> => {
   const defaultOptions: LargeFileUploaderOptionalOptions = {
     sliceSize: 100000,
-    minSlicedFileSize: 200000,
-    chunksNumber: 1,
+    minSlicedFileSize: 1000000,
+    numberOfChunks: 1,
     retryCountLimit: 3,
     multiple: true,
     accept: "",
@@ -520,13 +580,15 @@ const setDefaultOptions = <T>(
     spaceName: "",
     immediately: true,
     sizeLimit: null,
-    init: () => {},
+    numberOfThreads: 3,
+    gotCache: () => {},
     handleProcess: () => {},
     error: (error) => {
       console.error("Large-File-Uploader occurred errors, error detail:");
       console.error(error);
     },
     success: () => {},
+    checkHash: undefined,
   };
   return { ...defaultOptions, ...largeFileUploaderOptions };
 };
@@ -570,12 +632,8 @@ const uploadFile = <T>(
   newestUploadDataList: UploaderData[],
   largeFileUploaderOptions: LargeFileUploaderOptions<T>,
   uploadPromiseResolve: (value?: any) => void,
-  uploadPromiseReject: (value?: any) => void,
-  isInit: boolean
+  uploadPromiseReject: (value?: any) => void
 ) => {
-  if (!isInit) {
-    return;
-  }
   const options = setDefaultOptions<T>(largeFileUploaderOptions);
 
   const body = document.body;
@@ -600,11 +658,20 @@ const getOfflineFiles = async <T>(
     .equals(spaceName)
     .toArray();
 
+  const fileCacheCount = files.length;
+  const currentUploadListLength = currentUploadList.length;
+  if (fileCacheCount && currentUploadListLength) {
+    for (let i = currentUploadListLength - 1; i >= 0; i--) {
+      currentUploadList[i + fileCacheCount] = currentUploadList[i];
+    }
+  }
+
   return files.map((fileObject, index) => {
     currentUploadList[index] = {
       result:
         fileObject.result === "uploading" ? "suspended" : fileObject.result,
       progress: fileObject.start / fileObject.chunks.length,
+      isCache: true,
       file: fileObject.file,
     } as any;
     return {
@@ -621,7 +688,6 @@ const getOfflineFiles = async <T>(
 const createFileUploader = <T>(
   largeFileUploaderOptions: LargeFileUploaderOptions<T>
 ) => {
-  let isInit = false;
   const options = setDefaultOptions<T>(largeFileUploaderOptions);
   const currentUploadList: UploaderData[] = [];
   const suspendAll = () => {
@@ -690,12 +756,12 @@ const createFileUploader = <T>(
                       progress: computeProgress(sliceStartRef.current),
                     });
                     options.handleProcess(
-                      filterUploadDataList(currentUploadList)
+                      computeUploadDataList(currentUploadList)
                     );
                     db.files.update(uploadData.fileObject.id!, {
                       result: "suspended",
                       start: sliceStartRef.current,
-                      end: sliceStartRef.current + options.chunksNumber,
+                      end: sliceStartRef.current + options.numberOfChunks,
                     });
                   }
                 };
@@ -711,7 +777,7 @@ const createFileUploader = <T>(
                       result: "uploading",
                     });
                     options.handleProcess(
-                      filterUploadDataList(currentUploadList)
+                      computeUploadDataList(currentUploadList)
                     );
                     const start = sliceStartRef.current;
                     autoUpload(start, {
@@ -725,7 +791,7 @@ const createFileUploader = <T>(
                       sliceStartRef,
                       length: uploadData.fileObject.chunks.length,
                       index,
-                      chunksNumber: options.chunksNumber,
+                      numberOfChunks: options.numberOfChunks,
                       chunks: uploadData.fileObject.chunks,
                       customParamsRef,
                       retryCountLimit: options.retryCountLimit,
@@ -743,7 +809,7 @@ const createFileUploader = <T>(
                   canceledRef.current = true;
                   currentUploadList[index].result = "cancel";
                   options.handleProcess(
-                    filterUploadDataList(currentUploadList)
+                    computeUploadDataList(currentUploadList)
                   );
                   db.files.delete(uploadData.fileObject.id!);
                   resolve(true);
@@ -754,9 +820,11 @@ const createFileUploader = <T>(
               });
             })
           );
-          options.init(currentUploadList);
-          options.handleProcess(filterUploadDataList(currentUploadList));
-          isInit = true;
+          options.gotCache(
+            currentUploadList.slice(0, uploadDataListInStorage.length),
+            currentUploadList
+          );
+          options.handleProcess(computeUploadDataList(currentUploadList));
           return promise;
         }
       )
@@ -777,8 +845,7 @@ const createFileUploader = <T>(
         currentUploadList,
         largeFileUploaderOptions,
         uploadPromiseResolve,
-        uploadPromiseReject,
-        isInit
+        uploadPromiseReject
       ),
   };
 };

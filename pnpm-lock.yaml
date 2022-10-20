@@ -3,6 +3,8 @@ lockfileVersion: 5.4
 specifiers:
   '@types/react': ^18.0.17
   '@types/react-dom': ^18.0.6
+  '@types/react-syntax-highlighter': ^15.5.5
+  '@types/spark-md5': ^3.0.2
   '@types/styled-components': ^5.1.26
   '@vitejs/plugin-react': ^2.1.0
   dexie: ^3.2.2
@@ -11,6 +13,7 @@ specifiers:
   react-is: ^18.2.0
   react-router-dom: ^6.4.2
   react-syntax-highlighter: ^15.5.0
+  spark-md5: ^3.0.2
   styled-components: ^5.3.6
   typescript: ^4.6.4
   vite: ^3.1.0
@@ -18,10 +21,13 @@ specifiers:
 dependencies:
   dexie: 3.2.2
   react-syntax-highlighter: 15.5.0_react@18.2.0
+  spark-md5: 3.0.2
 
 devDependencies:
   '@types/react': 18.0.21
   '@types/react-dom': 18.0.6
+  '@types/react-syntax-highlighter': 15.5.5
+  '@types/spark-md5': 3.0.2
   '@types/styled-components': 5.1.26
   '@vitejs/plugin-react': 2.1.0_vite@3.1.8
   react: 18.2.0
@@ -428,6 +434,12 @@ packages:
       '@types/react': 18.0.21
     dev: true
 
+  /@types/react-syntax-highlighter/15.5.5:
+    resolution: {integrity: sha512-QH3JZQXa2usAvJvSsdSUJ4Yu4j8ReuZpgRrEW+XP+Rmosbn425YshW9iGEb/pAARm8496axHhHUPRH3UmTiB6A==}
+    dependencies:
+      '@types/react': 18.0.21
+    dev: true
+
   /@types/react/18.0.21:
     resolution: {integrity: sha512-7QUCOxvFgnD5Jk8ZKlUAhVcRj7GuJRjnjjiY/IUBWKgOlnvDvTMLD4RTF7NPyVmbRhNrbomZiOepg7M/2Kj1mA==}
     dependencies:
@@ -438,6 +450,10 @@ packages:
 
   /@types/scheduler/0.16.2:
     resolution: {integrity: sha512-hppQEBDmlwhFAXKJX2KnWLYu5yMfi91yazPb2l+lbJiwW+wdo1gNeRA+3RgNSO39WYX2euey41KEwnqesU2Jew==}
+    dev: true
+
+  /@types/spark-md5/3.0.2:
+    resolution: {integrity: sha512-82E/lVRaqelV9qmRzzJ1PKTpyrpnT7mwdneKNJB9hUtypZDMggloDfFUCIqRRx3lYRxteCwXSq9c+W71Vf0QnQ==}
     dev: true
 
   /@types/styled-components/5.1.26:
@@ -1143,6 +1159,10 @@ packages:
 
   /space-separated-tokens/1.1.5:
     resolution: {integrity: sha512-q/JSVd1Lptzhf5bkYm4ob4iWPjx0KiRe3sRFBNrVqbJkFaBm5vbbowy1mymoPNLRa52+oadOhJ+K49wsSeSjTA==}
+    dev: false
+
+  /spark-md5/3.0.2:
+    resolution: {integrity: sha512-wcFzz9cDfbuqe0FZzfi2or1sgyIrsDwmPwfZC4hiNidPdPINjeUwNfv5kldczoEAcjl9Y1L3SM7Uz2PUEQzxQw==}
     dev: false
 
   /styled-components/5.3.6_7i5myeigehqah43i5u7wbekgba:
