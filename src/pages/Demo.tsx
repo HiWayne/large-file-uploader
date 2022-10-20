@@ -88,7 +88,7 @@ const UploadItem = ({ uploader }: { uploader: UploaderData }) => {
           进度：
           <SphericalProgress progress={uploader.progress} />
         </Flex>
-        <p>结果: {uploader.result}；</p>
+        <p>状态: {uploader.result}；</p>
       </div>
       <div>
         {isComplete || isInitialization ? null : (
@@ -171,9 +171,6 @@ const Demo = () => {
       },
       handleProcess(uploadDataList) {
         setList(uploadDataList);
-      },
-      async checkHash() {
-        return true;
       },
     });
     normalUploadRef.current = normalUploader.uploadFile;

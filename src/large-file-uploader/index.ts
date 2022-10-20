@@ -339,7 +339,7 @@ const createHiddenUploaderInput = (() => {
             const chunks: Blob[] = [];
             const size = file.size;
             const sliceStartRef = { current: 0 };
-            const length = chunks.length;
+            let length = 0;
             const computeProgress = (start: number) => start / length;
 
             if (size >= minSlicedFileSize) {
@@ -347,7 +347,7 @@ const createHiddenUploaderInput = (() => {
               const setTaskToMultithreading =
                 createSetTaskToMultithreading(workers);
               const multithreadTasksPromise = [];
-              console.time('hash')
+              console.time("hash");
               for (let i = 0; i < sliceNumber; i++) {
                 const slicedFile = file.slice(
                   i * sliceSize,
@@ -362,6 +362,7 @@ const createHiddenUploaderInput = (() => {
                   spark.append(text);
                 }
               }
+              length = chunks.length;
               if (checkHash) {
                 let md5HexHash = "";
                 if (numberOfThreads > 1) {
@@ -373,7 +374,7 @@ const createHiddenUploaderInput = (() => {
                 } else {
                   md5HexHash = spark.end();
                 }
-                console.timeEnd('hash')
+                console.timeEnd("hash");
                 const result = await checkHash(md5HexHash);
                 if (result === true) {
                   sliceStartRef.current = length;
@@ -394,7 +395,6 @@ const createHiddenUploaderInput = (() => {
             } else {
               chunks.push(file);
             }
-
             const _retryCountRef = { current: 0 };
             const suspendedRef = { current: false };
             const canceledRef = { current: false };
