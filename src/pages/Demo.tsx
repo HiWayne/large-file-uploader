@@ -11,7 +11,7 @@ import createFileUploader from "../large-file-uploader";
 import type { UploaderData } from "../large-file-uploader/type";
 import { applyUploadId, uploadChunks, uploadChunksMaybeFailure } from "../mock";
 import deleteIcon from "../assets/delete.svg";
-import { SphericalProgress } from "../components";
+import { Loading, SphericalProgress } from "../components";
 
 const DemoWrapper = styled.div`
   height: 100vh;
@@ -76,10 +76,10 @@ const DeleteIcon = styled.div`
 `;
 
 const UploadItem = ({ uploader }: { uploader: UploaderData }) => {
-  const isSuspended = uploader.result === "suspended";
-  const isFailure = uploader.result === "failure";
-  const isComplete = uploader.result === "completed";
-  const isInitialization = uploader.result === "initialization";
+  const isSuspended = uploader.status === "suspended";
+  const isFailure = uploader.status === "failure";
+  const isComplete = uploader.status === "completed";
+  const isInitialization = uploader.status === "initialization";
   return (
     <Flex>
       <div style={{ width: "200px" }}>
@@ -88,7 +88,7 @@ const UploadItem = ({ uploader }: { uploader: UploaderData }) => {
           进度：
           <SphericalProgress progress={uploader.progress} />
         </Flex>
-        <p>状态: {uploader.result}；</p>
+        <p>状态: {uploader.status}</p>
       </div>
       <div>
         {isComplete || isInitialization ? null : (
@@ -146,6 +146,9 @@ const Demo = () => {
   const [uploaderMaybeFailureList, setMaybeFailureList] = useState<
     UploaderData[]
   >([]);
+  const [cacheLoadedInNormal, setCacheLoadedInNormal] = useState(false);
+  const [cacheLoadedInMaybeFailure, setCacheLoadedInMaybeFailure] =
+    useState(false);
 
   const normalUploadRef: MutableRefObject<() => void> = useRef(null as any);
   const maybeFailureUploadRef: MutableRefObject<() => void> = useRef(
@@ -167,6 +170,7 @@ const Demo = () => {
         return id;
       },
       gotCache(cacheList, uploadDataList) {
+        setCacheLoadedInNormal(true);
         setList(uploadDataList);
       },
       handleProcess(uploadDataList) {
@@ -188,6 +192,7 @@ const Demo = () => {
         return id;
       },
       gotCache(cacheList, uploadDataList) {
+        setCacheLoadedInMaybeFailure(true);
         setMaybeFailureList(uploadDataList);
       },
       handleProcess(uploadDataList) {
@@ -259,6 +264,7 @@ const Demo = () => {
             {uploaderList.map((uploader, index) => (
               <UploadItem uploader={uploader} key={index} />
             ))}
+            {cacheLoadedInNormal ? null : <Loading type="block" />}
           </UploadList>
         </Left>
         <Right>
@@ -276,6 +282,7 @@ const Demo = () => {
             {uploaderMaybeFailureList.map((uploader, index) => (
               <UploadItem uploader={uploader} key={index} />
             ))}
+            {cacheLoadedInMaybeFailure ? null : <Loading type="block" />}
           </UploadList>
         </Right>
       </Content>

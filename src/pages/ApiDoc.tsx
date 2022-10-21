@@ -40,6 +40,13 @@ const apiPropertyMap: {
     type: "string",
   },
   {
+    key: "maxNumberOfRequest",
+    desc: "最大并发请求数。如果你创建了多个上传器，它们的该项配置是各自独立的",
+    optional: true,
+    default: "6",
+    type: "number",
+  },
+  {
     key: "retryCountLimit",
     desc: "上传失败最大自动重试次数",
     optional: true,
@@ -59,6 +66,20 @@ const apiPropertyMap: {
     optional: true,
     default: "''",
     type: "string",
+  },
+  {
+    key: "openHash",
+    desc: "是否需要计算文件hash，如果不需要可以关闭以明显提升速度",
+    optional: true,
+    default: "true",
+    type: "boolean",
+  },
+  {
+    key: "numberOfChunks",
+    desc: "计算hash时的线程数量。设置为1切换为单线程。",
+    optional: true,
+    default: "5",
+    type: "number",
   },
   {
     key: "minSlicedFileSize",
@@ -81,13 +102,6 @@ const apiPropertyMap: {
     default: "1",
     type: "number",
   },
-  {
-    key: "numberOfChunks",
-    desc: "计算hash时的线程数量。设置为1切换为单线程。",
-    optional: true,
-    default: "5",
-    type: "number",
-  },
 ];
 
 const apiMethodMap: {
@@ -99,7 +113,7 @@ const apiMethodMap: {
 }[] = [
   {
     key: "upload",
-    desc: "处理上传请求的方法。接收的第一个参数是分片相关的信息，包括chunks-本次上传的分片blob数组、start-在总分片数组中的起始位置、end-在总分片数组中的结束位置、size-分片总数量。第二个参数是自定义数据，来自upload返回的Promise<T>中的T。场景举例：分段上传，后端可能需要一个id来记住上传的文件标识，所以开始前端先申请一个id，upload return这个id，它会作为后续分片上传时收到的的customParams，这样这个文件每次上传分片都可以带上那个id。",
+    desc: "处理上传请求的方法。接收的第一个参数是分片相关的信息，包括chunks-本次上传的分片blob数组、start-在总分片数组中的起始位置、end-在总分片数组中的结束位置、size-分片总数量、hashSum-所有分片的hash和。第二个参数是自定义数据，来自upload返回的Promise<T>中的T。场景举例：分段上传，后端可能需要一个id来记住上传的文件标识，所以开始前端先申请一个id，upload return这个id，它会作为后续分片上传时收到的的customParams，这样这个文件每次上传分片都可以带上那个id。",
     optional: false,
     default: "",
     type: `
@@ -109,6 +123,7 @@ const apiMethodMap: {
                 start: number;
                 end: number;
                 size: number;
+                hashSum: string;
             },
             customParams: T
         ) => Promise<T>
@@ -116,7 +131,7 @@ const apiMethodMap: {
   },
   {
     key: "checkHash",
-    desc: "从后端查询上传进度的方法。接受文件hash参数，提交给后端查询文件上传进度：true表示已完成、3表示下一个该上传index为3的分块",
+    desc: "从后端查询上传进度的方法。接受文件hash参数，可以给后端以查询文件上传进度，Promise返回值true表示已完成、number表示下一个该上传index为number的分块",
     optional: false,
     default: "",
     type: "(hash: string) => Promise<number | true>",
@@ -216,8 +231,8 @@ const ApiDoc = () => {
         {`import createFileUploader, type { UploaderData } from "large-file-uploader";
 
 const uploader = createFileUploader({
-    // 这里是上传接口的封装，是createFileUploader唯一的必须参数
-    async upload({ chunks, start, end, size }, customParams: number) {
+    // 这里定义上传逻辑，是createFileUploader唯一的必须参数
+    async upload({ chunks, start, end, size, hashSum }, customParams: number) {
         let id = customParams;
         // 假设分块上传后端可能需要一个id来记住上传的文件，所以开始先申请一个id
         if (customParams === undefined) {
@@ -228,16 +243,16 @@ const uploader = createFileUploader({
         return id;
     },
     init(uploadDataList: UploaderData[]) {
-        // 这个回调触发之后才可以使用uploader.uploadFile()
+      // 这个回调触发之后才可以使用uploader.uploadFile()
     },
     handleProcess(uploadDataList: UploaderData[]) {
-        // 这里可以更新上传列表状态
+      // 这里可以收到上传列表状态的更新（包括进度、队列增删等变化）
     },
     success() {
-        // 上传全部成功之后
+      // 上传全部成功之后
     },
     error(uploadDataList: UploaderData[]) {
-        // 发生错误
+      // 发生错误时
     },
 });
 // uploader.uploadFile，会调起文件选择，然后上传

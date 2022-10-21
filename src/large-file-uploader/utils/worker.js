@@ -7,9 +7,9 @@ export const workerFn = () => {
     const text = data.data;
     try {
       const hash = SparkMD5.hash(text)
-      postMessage({result: true, data: hash, index: data.index});
+      postMessage({result: true, data: hash, index: data.index, task: data.task});
     } catch(error) {
-      postMessage({result: false, data: error, index: data.index});
+      postMessage({result: false, data: error, index: data.index, task: data.task});
     }
   };
 };

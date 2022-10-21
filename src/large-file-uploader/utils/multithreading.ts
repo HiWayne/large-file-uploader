@@ -17,36 +17,65 @@ export const multithreading = async (tasksData: any[], threads: Worker[]) => {
       threads[which].postMessage({ data: taskData, index });
     });
   });
+  const onmessage = (
+    event: MessageEvent<{
+      index: number;
+      data: any;
+      result: boolean;
+      task: string;
+    }>
+  ) => {
+    const data: { index: number; data: any; result: boolean } = event.data;
+    if (data.result) {
+      promiseHandlers[data.index].resolve(data.data);
+    } else {
+      promiseHandlers[data.index].reject();
+    }
+  };
   threads.forEach((thread) => {
-    thread.onmessage = (event) => {
-      const data: { index: number; data: any; result: boolean } = event.data;
-      if (data.result) {
-        promiseHandlers[data.index].resolve(data.data);
-      } else {
-        promiseHandlers[data.index].reject();
-      }
-    };
+    thread.addEventListener("message", onmessage);
   });
-  return Promise.all(promises);
+  return Promise.all(promises).finally(() => {
+    threads.forEach((thread) => {
+      thread.removeEventListener("message", onmessage);
+    });
+  });
 };
 
-export const createSetTaskToMultithreading = (threads: Worker[]) => {
-  let index = 0;
-  let threadIndex = 0;
-  const promiseHandlers: {
+const promiseHandlers: {
+  [task: string]: {
     resolve: (value?: any) => void;
     reject: (value?: any) => void;
-  }[] = ([] = []);
-  threads.forEach(thread => {
-    thread.onmessage = (event) => {
-      const data: { index: number; data: any; result: boolean } = event.data;
-      if (data.result) {
-        promiseHandlers[data.index].resolve(data.data);
-      } else {
-        promiseHandlers[data.index].reject(data.data);
-      }
-    };
-  })
+  }[];
+} = {};
+let isListened = false;
+export const createSetTaskToMultithreading = (
+  threads: Worker[],
+  task: string
+) => {
+  let index = 0;
+  let threadIndex = 0;
+  const onmessage = (
+    event: MessageEvent<{
+      index: number;
+      data: any;
+      result: boolean;
+      task: string;
+    }>
+  ) => {
+    const data = event.data;
+    if (data.result) {
+      promiseHandlers[data.task][data.index].resolve(data.data);
+    } else {
+      promiseHandlers[data.task][data.index].reject(data.data);
+    }
+  };
+  if (!isListened) {
+    threads.forEach((thread) => {
+      thread.addEventListener("message", onmessage);
+    });
+    isListened = true;
+  }
   return (taskData: any) => {
     let _resolve: (value?: any) => void = () => {},
       _reject: (value?: any) => void = () => {};
@@ -54,15 +83,20 @@ export const createSetTaskToMultithreading = (threads: Worker[]) => {
       _resolve = resolve;
       _reject = reject;
       const numberOfThreads = threads.length;
-      threads[threadIndex].postMessage({ data: taskData, index });
+      threads[threadIndex].postMessage({ data: taskData, index, task });
       if (threadIndex >= numberOfThreads - 1) {
         threadIndex = 0;
       } else {
         threadIndex++;
       }
     });
-    promiseHandlers[index] = { resolve: _resolve, reject: _reject };
+    if (!promiseHandlers[task]) {
+      promiseHandlers[task] = [];
+    }
+    promiseHandlers[task][index] = { resolve: _resolve, reject: _reject };
     index++;
-    return promise;
+    return promise.finally(() => {
+      promiseHandlers[task][index] = undefined as any;
+    });
   };
 };

@@ -7,6 +7,7 @@ import {
   createSetTaskToMultithreading,
   multithreading,
 } from "./utils/multithreading";
+import { findFirstWaiting } from "./utils/findFirstWaiting";
 
 interface LargeFileUploaderOptionalOptions {
   // 每个切片大小，单位字节，默认100kb
@@ -31,6 +32,8 @@ interface LargeFileUploaderOptionalOptions {
   sizeLimit: [number, number] | null;
   // 线程数量
   numberOfThreads: number;
+  // 最大请求数
+  maxNumberOfRequest: number;
   // 初始化完成回调
   gotCache: (cacheList: UploaderData[], uploadDataList: UploaderData[]) => void;
   // 上传进度回调函数
@@ -38,6 +41,7 @@ interface LargeFileUploaderOptionalOptions {
   error: (uploadDataList: UploaderData[]) => void;
   // 上传全部完成回调函数，result: true，data: UploaderData[]
   success: (data: { result: boolean; data: UploaderData[] }) => void;
+  openHash: boolean;
   checkHash: ((hash: string) => Promise<number | true>) | undefined;
 }
 
@@ -48,6 +52,7 @@ interface LargeFileUploaderRequiredOptions<T> {
       start: number;
       end: number;
       size: number;
+      hashSum: string;
     },
     customParams: T
   ) => Promise<T>;
@@ -59,15 +64,17 @@ type LargeFileUploaderOptions<T> = Partial<LargeFileUploaderOptionalOptions> &
 type FullyLargeFileUploaderOptions<T> = LargeFileUploaderOptionalOptions &
   LargeFileUploaderRequiredOptions<T>;
 
-const computeUploadDataList = (list: UploaderData[]) =>
-  list.filter((uploadData) => uploadData.result !== "cancel").reverse();
+const computeUploadDataList = (list: UploaderData[]) => {
+  console.log(list);
+  return list.filter((uploadData) => uploadData.status !== "cancel").reverse();
+};
 
 const autoUpload = <T>(
   start = 0,
   {
     idRef,
     upload,
-    updateProgressList,
+    updateUploadDataList,
     computeProgress,
     handleProcess,
     resolve,
@@ -87,6 +94,9 @@ const autoUpload = <T>(
     spaceName,
     file,
     currentUpdateDataRef,
+    hashSum,
+    currentNumberOfRequestRef,
+    maxNumberOfRequest,
   }: {
     idRef: { current: number | Promise<number> | undefined };
     upload: (
@@ -95,10 +105,11 @@ const autoUpload = <T>(
         start: number;
         end: number;
         size: number;
+        hashSum: string;
       },
       customParams: T
     ) => Promise<T>;
-    updateProgressList: (
+    updateUploadDataList: (
       index: number,
       progressData: Partial<UploaderData>
     ) => UploaderData[];
@@ -121,7 +132,11 @@ const autoUpload = <T>(
     spaceName: string;
     file: File;
     currentUpdateDataRef?: { current: any };
-  }
+    hashSum: string;
+    currentNumberOfRequestRef: { current: number };
+    maxNumberOfRequest: number;
+  },
+  isFirst?: boolean
 ) => {
   if (canceledRef.current) {
     return;
@@ -132,7 +147,7 @@ const autoUpload = <T>(
       autoUpload(start, {
         idRef,
         upload,
-        updateProgressList,
+        updateUploadDataList,
         computeProgress,
         handleProcess,
         resolve,
@@ -152,21 +167,68 @@ const autoUpload = <T>(
         spaceName,
         file,
         currentUpdateDataRef,
+        hashSum,
+        currentNumberOfRequestRef,
+        maxNumberOfRequest,
       });
     } else {
       sliceStartRef.current = start;
-      updateProgressList(index, {
-        result: "failure",
+      updateUploadDataList(index, {
+        status: "failure",
         progress: computeProgress(start),
       });
       handleProcess(computeUploadDataList(currentUploadListRef.current));
       reject(start);
     }
   };
+  if (isFirst && currentNumberOfRequestRef.current < maxNumberOfRequest) {
+    updateUploadDataList(index, {
+      status: "uploading",
+    });
+    handleProcess(computeUploadDataList(currentUploadListRef.current));
+    if (idRef.current !== undefined) {
+      if (typeof idRef.current === "number") {
+        db.files.update(idRef.current, {
+          status: "uploading",
+        });
+      } else {
+        idRef.current.then((id) => {
+          db.files.update(id, {
+            status: "uploading",
+          });
+        });
+      }
+    }
+    currentNumberOfRequestRef.current++;
+  } else if (
+    isFirst &&
+    currentNumberOfRequestRef.current >= maxNumberOfRequest
+  ) {
+    updateUploadDataList(index, {
+      status: "waiting",
+    });
+    handleProcess(computeUploadDataList(currentUploadListRef.current));
+    if (idRef.current !== undefined) {
+      if (typeof idRef.current === "number") {
+        db.files.update(idRef.current, {
+          status: "waiting",
+        });
+      } else {
+        idRef.current.then((id) => {
+          db.files.update(id, {
+            status: "waiting",
+          });
+        });
+      }
+    }
+    return;
+  }
+  // 完成
   if (start >= length) {
+    currentNumberOfRequestRef.current--;
     sliceStartRef.current = length;
-    updateProgressList(index, {
-      result: "completed",
+    updateUploadDataList(index, {
+      status: "completed",
       progress: computeProgress(length),
     });
     handleProcess(computeUploadDataList(currentUploadListRef.current));
@@ -180,6 +242,10 @@ const autoUpload = <T>(
         });
       }
     }
+    const uploader = findFirstWaiting(currentUploadListRef.current);
+    if (uploader) {
+      uploader.resume();
+    }
     return;
   }
   const nextStart = start + numberOfChunks;
@@ -189,6 +255,7 @@ const autoUpload = <T>(
       start: start,
       end: nextStart - 1,
       size: length,
+      hashSum,
     },
     customParamsRef.current
   )
@@ -199,14 +266,14 @@ const autoUpload = <T>(
       if (offlineStorage && idRef.current !== undefined) {
         if (typeof idRef.current === "number") {
           db.files.update(idRef.current, {
-            result: "uploading",
+            status: "uploading",
             start: nextStart,
             end: nextStart + numberOfChunks,
             customParams: customParamsRef.current,
           });
         } else {
           currentUpdateDataRef!.current = {
-            result: "uploading",
+            status: "uploading",
             start: nextStart,
             end: nextStart + numberOfChunks,
             customParams: customParamsRef.current,
@@ -216,15 +283,15 @@ const autoUpload = <T>(
       _retryCountRef.current = 0;
       customParamsRef.current = data;
       sliceStartRef.current = nextStart;
-      updateProgressList(index, {
-        result: "uploading",
+      updateUploadDataList(index, {
+        status: "uploading",
         progress: computeProgress(nextStart),
       });
       handleProcess(computeUploadDataList(currentUploadListRef.current));
       autoUpload(nextStart, {
         idRef,
         upload,
-        updateProgressList,
+        updateUploadDataList,
         computeProgress,
         handleProcess,
         resolve,
@@ -244,6 +311,9 @@ const autoUpload = <T>(
         spaceName,
         file,
         currentUpdateDataRef,
+        hashSum,
+        currentNumberOfRequestRef,
+        maxNumberOfRequest,
       });
     })
     .catch(() => {
@@ -253,13 +323,13 @@ const autoUpload = <T>(
       if (offlineStorage && idRef.current !== undefined) {
         if (typeof idRef.current === "number") {
           db.files.update(idRef.current, {
-            result: "failure",
+            status: "failure",
             start: start,
             end: start + numberOfChunks,
           });
         } else {
           currentUpdateDataRef!.current = {
-            result: "failure",
+            status: "failure",
             start: start,
             end: start + numberOfChunks,
           };
@@ -292,6 +362,8 @@ const createHiddenUploaderInput = (() => {
       immediately,
       sizeLimit,
       numberOfThreads,
+      openHash,
+      maxNumberOfRequest,
       upload,
       handleProcess,
       checkHash,
@@ -312,18 +384,20 @@ const createHiddenUploaderInput = (() => {
             : true
         );
         if (files) {
+          const currentNumberOfRequestRef: { current: number } = { current: 0 };
           const createUploaderData = (index: number): ProgressData => ({
-            result: "initialization",
+            status: "initialization",
             progress: 0,
             file: files[index],
           });
           const progressList = files.map((_, index) => {
             const uploader = createUploaderData(index);
-            const indexInTotalList = currentUploadList.length + index;
+            // 每个文件都加在缓存文件后面，上一个文件会让currentUploadList.length + 1，要抵消掉
+            const indexInTotalList = currentUploadList.length;
             currentUploadList[indexInTotalList] = uploader as any;
             return uploader;
           });
-          const updateProgressList = (
+          const updateUploadDataList = (
             index: number,
             progressData: Partial<UploaderData>
           ): UploaderData[] => {
@@ -335,38 +409,41 @@ const createHiddenUploaderInput = (() => {
           };
           handleProcess(computeUploadDataList(currentUploadList));
           const uploadList = files.map(async (file, index) => {
+            console.log(`file${index}`);
             const spark = new SparkMD5();
             const chunks: Blob[] = [];
             const size = file.size;
             const sliceStartRef = { current: 0 };
             let length = 0;
+            let md5HexHash = "";
             const computeProgress = (start: number) => start / length;
 
             if (size >= minSlicedFileSize) {
               const sliceNumber = Math.ceil(size / sliceSize);
-              const setTaskToMultithreading =
-                createSetTaskToMultithreading(workers);
+              const setTaskToMultithreading = createSetTaskToMultithreading(
+                workers,
+                `${Math.random().toFixed(6)}-${index}`
+              );
               const multithreadTasksPromise = [];
-              console.time("hash");
               for (let i = 0; i < sliceNumber; i++) {
                 const slicedFile = file.slice(
                   i * sliceSize,
                   (i + 1) * sliceSize
                 );
                 chunks.push(slicedFile);
-                if (checkHash && numberOfThreads > 1) {
+                if (openHash && numberOfThreads > 1) {
                   const text = await slicedFile.text();
                   multithreadTasksPromise[i] = setTaskToMultithreading(text);
-                } else if (checkHash && numberOfThreads <= 1) {
+                } else if (openHash && numberOfThreads <= 1) {
                   const text = await slicedFile.text();
                   spark.append(text);
                 }
               }
               length = chunks.length;
-              if (checkHash) {
-                let md5HexHash = "";
+              if (openHash) {
                 if (numberOfThreads > 1) {
                   const results = await Promise.all(multithreadTasksPromise);
+                  console.log("slice completed", index);
                   md5HexHash = results.reduce(
                     (hash: string, result) => hash + result,
                     ""
@@ -374,23 +451,29 @@ const createHiddenUploaderInput = (() => {
                 } else {
                   md5HexHash = spark.end();
                 }
-                console.timeEnd("hash");
-                const result = await checkHash(md5HexHash);
-                if (result === true) {
-                  sliceStartRef.current = length;
-                  updateProgressList(index, {
-                    result: "completed",
-                    progress: 1,
-                  });
-                  handleProcess(computeUploadDataList(currentUploadList));
-                } else if (typeof result === "number") {
-                  sliceStartRef.current = result;
-                  updateProgressList(index, {
-                    result: "initialization",
-                    progress: computeProgress(result),
-                  });
-                  handleProcess(computeUploadDataList(currentUploadList));
+                if (checkHash) {
+                  const result = await checkHash(md5HexHash);
+                  if (result === true) {
+                    sliceStartRef.current = length;
+                    updateUploadDataList(index, {
+                      status: "completed",
+                      progress: 1,
+                    });
+                    handleProcess(computeUploadDataList(currentUploadList));
+                  } else if (typeof result === "number") {
+                    sliceStartRef.current = result;
+                    updateUploadDataList(index, {
+                      status: "suspended",
+                      progress: computeProgress(result),
+                    });
+                    handleProcess(computeUploadDataList(currentUploadList));
+                  }
                 }
+              } else {
+                updateUploadDataList(index, {
+                  status: "suspended",
+                });
+                handleProcess(computeUploadDataList(currentUploadList));
               }
             } else {
               chunks.push(file);
@@ -413,26 +496,34 @@ const createHiddenUploaderInput = (() => {
               };
               const pause = () => {
                 suspendedRef.current = true;
-                if (progressList[index].result === "uploading") {
-                  updateProgressList(index, {
-                    result: "suspended",
+                if (progressList[index].status === "uploading") {
+                  currentNumberOfRequestRef.current--;
+                  updateUploadDataList(index, {
+                    status: "suspended",
                     progress: computeProgress(sliceStartRef.current),
                   });
                   handleProcess(computeUploadDataList(currentUploadList));
+                  const uploader = findFirstWaiting(
+                    currentUploadListRef.current
+                  );
+                  console.log(uploader);
+                  if (uploader) {
+                    uploader.resume();
+                  }
                   if (
                     idRef.current !== undefined &&
                     typeof idRef.current !== "number"
                   ) {
                     idRef.current.then((id) => {
                       db.files.update(id, {
-                        result: "suspended",
+                        status: "suspended",
                         start: sliceStartRef.current,
                         end: sliceStartRef.current + numberOfChunks,
                       });
                     });
                   } else if (typeof idRef.current === "number") {
                     db.files.update(idRef.current, {
-                      result: "suspended",
+                      status: "suspended",
                       start: sliceStartRef.current,
                       end: sliceStartRef.current + numberOfChunks,
                     });
@@ -441,47 +532,51 @@ const createHiddenUploaderInput = (() => {
               };
               const resume = () => {
                 if (
-                  progressList[index].result === "initialization" ||
-                  progressList[index].result === "suspended" ||
-                  progressList[index].result === "failure"
+                  progressList[index].status === "initialization" ||
+                  progressList[index].status === "suspended" ||
+                  progressList[index].status === "failure"
                 ) {
                   _retryCountRef.current = 0;
                   suspendedRef.current = false;
-                  updateProgressList(index, {
-                    result: "uploading",
-                  });
-                  handleProcess(computeUploadDataList(currentUploadList));
                   const start = sliceStartRef.current;
-                  autoUpload(start, {
-                    idRef,
-                    upload,
-                    updateProgressList,
-                    computeProgress,
-                    handleProcess,
-                    resolve,
-                    reject,
-                    sliceStartRef,
-                    length,
-                    index,
-                    numberOfChunks,
-                    chunks,
-                    customParamsRef,
-                    retryCountLimit,
-                    _retryCountRef,
-                    suspendedRef,
-                    canceledRef,
-                    currentUploadListRef,
-                    offlineStorage,
-                    spaceName,
-                    file: files[index],
-                    currentUpdateDataRef,
-                  });
+                  autoUpload(
+                    start,
+                    {
+                      idRef,
+                      upload,
+                      updateUploadDataList,
+                      computeProgress,
+                      handleProcess,
+                      resolve,
+                      reject,
+                      sliceStartRef,
+                      length,
+                      index,
+                      numberOfChunks,
+                      chunks,
+                      customParamsRef,
+                      retryCountLimit,
+                      _retryCountRef,
+                      suspendedRef,
+                      canceledRef,
+                      currentUploadListRef,
+                      offlineStorage,
+                      spaceName,
+                      file: files[index],
+                      currentUpdateDataRef,
+                      hashSum: md5HexHash,
+                      currentNumberOfRequestRef,
+                      maxNumberOfRequest,
+                    },
+                    true
+                  );
                 }
               };
               const remove = () => {
+                currentNumberOfRequestRef.current--;
                 canceledRef.current = true;
-                updateProgressList(index, {
-                  result: "cancel",
+                updateUploadDataList(index, {
+                  status: "cancel",
                 });
                 handleProcess(computeUploadDataList(currentUploadList));
                 if (
@@ -496,7 +591,7 @@ const createHiddenUploaderInput = (() => {
                 }
                 resolve(true);
               };
-              updateProgressList(index, {
+              updateUploadDataList(index, {
                 pause,
                 resume,
                 remove,
@@ -505,17 +600,18 @@ const createHiddenUploaderInput = (() => {
                 idRef.current = db.files.add({
                   file: files[index],
                   chunks: chunks,
-                  result: "initialization",
+                  status: "suspended",
                   start: 0,
                   end: numberOfChunks,
                   customParams: customParamsRef.current,
                   spaceName: spaceName || "",
+                  hashSum: md5HexHash,
                 }) as Promise<number>;
 
-                idRef.current.then((data) => {
+                idRef.current.then((id) => {
                   if (currentUpdateDataRef.current) {
-                    db.files.update(data, currentUpdateDataRef.current);
-                    idRef.current = data;
+                    db.files.update(id, currentUpdateDataRef.current);
+                    idRef.current = id;
                   }
                 });
               }
@@ -525,7 +621,7 @@ const createHiddenUploaderInput = (() => {
             });
           });
           const results = await Promise.all(uploadList);
-          if (results.every((result, index) => result === true)) {
+          if (results.every((result) => result === true)) {
             uploadPromiseResolve();
           } else {
             const errorsRecord = results
@@ -581,6 +677,8 @@ const setDefaultOptions = <T>(
     immediately: true,
     sizeLimit: null,
     numberOfThreads: 3,
+    openHash: true,
+    maxNumberOfRequest: 6,
     gotCache: () => {},
     handleProcess: () => {},
     error: (error) => {
@@ -594,7 +692,7 @@ const setDefaultOptions = <T>(
 };
 
 const initialUploader: UploaderData = {
-  result: "initialization",
+  status: "initialization",
   progress: 0,
   file: {} as any,
   pause: () => {
@@ -665,11 +763,9 @@ const getOfflineFiles = async <T>(
       currentUploadList[i + fileCacheCount] = currentUploadList[i];
     }
   }
-
   return files.map((fileObject, index) => {
     currentUploadList[index] = {
-      result:
-        fileObject.result === "uploading" ? "suspended" : fileObject.result,
+      status: "suspended" as "suspended",
       progress: fileObject.start / fileObject.chunks.length,
       isCache: true,
       file: fileObject.file,
@@ -677,8 +773,7 @@ const getOfflineFiles = async <T>(
     return {
       name: fileObject.file.name,
       file: fileObject.file,
-      result:
-        fileObject.result === "uploading" ? "suspended" : fileObject.result,
+      status: "suspended" as "suspended",
       progress: fileObject.start / fileObject.chunks.length,
       fileObject,
     };
@@ -723,6 +818,7 @@ const createFileUploader = <T>(
         (
           uploadDataListInStorage: (ProgressData & { fileObject: FileDoc })[]
         ) => {
+          const currentNumberOfRequestRef = { current: 0 };
           const promise = Promise.all(
             uploadDataListInStorage.map((uploadData, index) => {
               return new Promise((resolve, reject) => {
@@ -750,16 +846,23 @@ const createFileUploader = <T>(
                   start / uploadData.fileObject.chunks.length;
                 const pause = () => {
                   suspendedRef.current = true;
-                  if (currentUploadList[index].result === "uploading") {
+                  if (currentUploadList[index].status === "uploading") {
+                    currentNumberOfRequestRef.current--;
                     updateUploadDataList(index, {
-                      result: "suspended",
+                      status: "suspended",
                       progress: computeProgress(sliceStartRef.current),
                     });
                     options.handleProcess(
                       computeUploadDataList(currentUploadList)
                     );
+                    const uploader = findFirstWaiting(
+                      currentUploadListRef.current
+                    );
+                    if (uploader) {
+                      uploader.resume();
+                    }
                     db.files.update(uploadData.fileObject.id!, {
-                      result: "suspended",
+                      status: "suspended",
                       start: sliceStartRef.current,
                       end: sliceStartRef.current + options.numberOfChunks,
                     });
@@ -767,47 +870,49 @@ const createFileUploader = <T>(
                 };
                 const resume = () => {
                   if (
-                    currentUploadList[index].result === "initialization" ||
-                    currentUploadList[index].result === "suspended" ||
-                    currentUploadList[index].result === "failure"
+                    currentUploadList[index].status === "initialization" ||
+                    currentUploadList[index].status === "suspended" ||
+                    currentUploadList[index].status === "failure"
                   ) {
                     _retryCountRef.current = 0;
                     suspendedRef.current = false;
-                    updateUploadDataList(index, {
-                      result: "uploading",
-                    });
-                    options.handleProcess(
-                      computeUploadDataList(currentUploadList)
-                    );
                     const start = sliceStartRef.current;
-                    autoUpload(start, {
-                      idRef: { current: uploadData.fileObject.id },
-                      upload: options.upload,
-                      updateProgressList: updateUploadDataList,
-                      computeProgress,
-                      handleProcess: options.handleProcess,
-                      resolve,
-                      reject,
-                      sliceStartRef,
-                      length: uploadData.fileObject.chunks.length,
-                      index,
-                      numberOfChunks: options.numberOfChunks,
-                      chunks: uploadData.fileObject.chunks,
-                      customParamsRef,
-                      retryCountLimit: options.retryCountLimit,
-                      _retryCountRef,
-                      suspendedRef,
-                      canceledRef,
-                      currentUploadListRef,
-                      offlineStorage: options.offlineStorage,
-                      spaceName: options.spaceName,
-                      file: uploadData.fileObject.file,
-                    });
+                    autoUpload(
+                      start,
+                      {
+                        idRef: { current: uploadData.fileObject.id },
+                        upload: options.upload,
+                        updateUploadDataList: updateUploadDataList,
+                        computeProgress,
+                        handleProcess: options.handleProcess,
+                        resolve,
+                        reject,
+                        sliceStartRef,
+                        length: uploadData.fileObject.chunks.length,
+                        index,
+                        numberOfChunks: options.numberOfChunks,
+                        chunks: uploadData.fileObject.chunks,
+                        customParamsRef,
+                        retryCountLimit: options.retryCountLimit,
+                        _retryCountRef,
+                        suspendedRef,
+                        canceledRef,
+                        currentUploadListRef,
+                        offlineStorage: options.offlineStorage,
+                        spaceName: options.spaceName,
+                        file: uploadData.fileObject.file,
+                        hashSum: uploadData.fileObject.hashSum,
+                        currentNumberOfRequestRef,
+                        maxNumberOfRequest: options.maxNumberOfRequest,
+                      },
+                      true
+                    );
                   }
                 };
                 const remove = () => {
+                  currentNumberOfRequestRef.current--;
                   canceledRef.current = true;
-                  currentUploadList[index].result = "cancel";
+                  currentUploadList[index].status = "cancel";
                   options.handleProcess(
                     computeUploadDataList(currentUploadList)
                   );

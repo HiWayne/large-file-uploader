@@ -1,11 +1,12 @@
 export interface ProgressData {
-  result:
+  status:
     | "completed"
     | "failure"
     | "uploading"
     | "initialization"
     | "suspended"
-    | "cancel";
+    | "cancel"
+    | "waiting";
   progress: number;
   file: File;
   isCache?: boolean;

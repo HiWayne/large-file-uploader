@@ -4,17 +4,19 @@ export interface FileDoc {
   id?: number;
   file: File;
   chunks: Blob[];
-  result:
+  status:
     | "completed"
     | "failure"
     | "uploading"
     | "initialization"
     | "suspended"
-    | "cancel";
+    | "cancel"
+    | "waiting";
   start: number;
   end: number;
   customParams?: any;
   spaceName: string;
+  hashSum: string;
 }
 
 export class FileCacheDB extends Dexie {
