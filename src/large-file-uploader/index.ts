@@ -5,7 +5,6 @@ import { workerFn } from "./utils/worker";
 import {
   createMultithread,
   createSetTaskToMultithreading,
-  multithreading,
 } from "./utils/multithreading";
 import { findFirstWaiting } from "./utils/findFirstWaiting";
 
@@ -223,32 +222,9 @@ const autoUpload = <T>(
     }
     return;
   }
-  // 完成
-  if (start >= length) {
-    currentNumberOfRequestRef.current--;
-    sliceStartRef.current = length;
-    updateUploadDataList(index, {
-      status: "completed",
-      progress: computeProgress(length),
-    });
-    handleProcess(computeUploadDataList(currentUploadListRef.current));
-    resolve(true);
-    if (idRef.current !== undefined) {
-      if (typeof idRef.current === "number") {
-        db.files.delete(idRef.current);
-      } else {
-        idRef.current.then((id) => {
-          db.files.delete(id);
-        });
-      }
-    }
-    const uploader = findFirstWaiting(currentUploadListRef.current);
-    if (uploader) {
-      uploader.resume();
-    }
-    return;
-  }
+
   const nextStart = start + numberOfChunks;
+
   upload(
     {
       chunks: chunks.slice(start, nextStart),
@@ -288,6 +264,32 @@ const autoUpload = <T>(
         progress: computeProgress(nextStart),
       });
       handleProcess(computeUploadDataList(currentUploadListRef.current));
+      // 完成
+      if (nextStart >= length) {
+        currentNumberOfRequestRef.current--;
+        sliceStartRef.current = length;
+        updateUploadDataList(index, {
+          status: "completed",
+          progress: computeProgress(length),
+          result: data,
+        });
+        handleProcess(computeUploadDataList(currentUploadListRef.current));
+        resolve(true);
+        if (idRef.current !== undefined) {
+          if (typeof idRef.current === "number") {
+            db.files.delete(idRef.current);
+          } else {
+            idRef.current.then((id) => {
+              db.files.delete(id);
+            });
+          }
+        }
+        const uploader = findFirstWaiting(currentUploadListRef.current);
+        if (uploader) {
+          uploader.resume();
+        }
+        return;
+      }
       autoUpload(nextStart, {
         idRef,
         upload,
@@ -389,6 +391,7 @@ const createHiddenUploaderInput = (() => {
             status: "initialization",
             progress: 0,
             file: files[index],
+            result: null,
           });
           const progressList = files.map((_, index) => {
             const uploader = createUploaderData(index);
@@ -691,41 +694,6 @@ const setDefaultOptions = <T>(
   return { ...defaultOptions, ...largeFileUploaderOptions };
 };
 
-const initialUploader: UploaderData = {
-  status: "initialization",
-  progress: 0,
-  file: {} as any,
-  pause: () => {
-    throw new Error("不要在上传前调用pause");
-  },
-  resume: () => {
-    throw new Error("不要在上传前调用resume");
-  },
-  remove: () => {
-    throw new Error("不要在上传初始化前调用remove");
-  },
-};
-
-const proxyUploaderList = (newestUploadDataList: UploaderData[]) => {
-  return new Proxy(newestUploadDataList, {
-    get(newestUploadDataList, index) {
-      if (
-        Number.isNaN(Number(index)) ||
-        newestUploadDataList[index as any]._setUploader
-      ) {
-        return newestUploadDataList[index as any];
-      } else {
-        return initialUploader;
-      }
-    },
-    set(newestUploadDataList, index, controller) {
-      newestUploadDataList[index as any] = controller;
-      newestUploadDataList[index as any]._setUploader = true;
-      return true;
-    },
-  });
-};
-
 const uploadFile = <T>(
   newestUploadDataList: UploaderData[],
   largeFileUploaderOptions: LargeFileUploaderOptions<T>,
@@ -769,12 +737,14 @@ const getOfflineFiles = async <T>(
       progress: fileObject.start / fileObject.chunks.length,
       isCache: true,
       file: fileObject.file,
+      result: null,
     } as any;
     return {
       name: fileObject.file.name,
       file: fileObject.file,
       status: "suspended" as "suspended",
       progress: fileObject.start / fileObject.chunks.length,
+      result: null,
       fileObject,
     };
   });
@@ -785,10 +755,6 @@ const createFileUploader = <T>(
 ) => {
   const options = setDefaultOptions<T>(largeFileUploaderOptions);
   const currentUploadList: UploaderData[] = [];
-  const suspendAll = () => {
-    currentUploadList.forEach((uploader) => uploader.pause());
-  };
-  window.addEventListener("offline", suspendAll);
 
   let storagePromiseResolve: (value?: any) => void,
     storagePromiseReject: (value?: any) => void;

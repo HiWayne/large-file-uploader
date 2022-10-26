@@ -13,11 +13,14 @@ interface UploadChunksDTO {
   size: number;
 }
 
-export const uploadChunks = (params: UploadChunksDTO): Promise<true> => {
+export const uploadChunks = (
+  params: UploadChunksDTO,
+  speed: number
+): Promise<true> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve(true);
-    }, 300);
+    }, (100 / speed) * 1000);
   });
 };
 
@@ -26,7 +29,8 @@ export const uploadChunks = (params: UploadChunksDTO): Promise<true> => {
  * @description 有60%几率失败
  */
 export const uploadChunksMaybeFailure = (
-  params: UploadChunksDTO
+  params: UploadChunksDTO,
+  speed: number
 ): Promise<true> => {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
@@ -36,6 +40,6 @@ export const uploadChunksMaybeFailure = (
       } else {
         resolve(true);
       }
-    }, 300);
+    }, (100 / speed) * 1000);
   });
 };

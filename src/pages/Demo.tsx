@@ -2,11 +2,13 @@ import {
   MutableRefObject,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import { Input, Switch, InputNumber } from "antd";
 import createFileUploader from "../large-file-uploader";
 import type { UploaderData } from "../large-file-uploader/type";
 import { applyUploadId, uploadChunks, uploadChunksMaybeFailure } from "../mock";
@@ -142,11 +144,25 @@ const UploadList = styled.div`
 const Demo = () => {
   const navigate = useNavigate();
 
+  const [offlineStorage, setOfflineStorage] = useState(true);
+  const [immediately, setImmediately] = useState(true);
+  const [sizeLimit, setSizeLimit] = useState(null);
+  const [multiple, setMultiple] = useState(true);
+  const [accept, setAccept] = useState("");
+  const [maxNumberOfRequest, setMaxNumberOfRequest] = useState(6);
+  const [retryCountLimit, setRetryCountLimit] = useState(3);
+  const [openHash, setOpenHash] = useState(true);
+  const [numberOfThreads, setNumberOfThreads] = useState(5);
+  const [checkHashText, setCheckHashText] = useState("");
+  const [uploadSpeed, setUploadSpeed] = useState(100);
+
   const [uploaderList, setList] = useState<UploaderData[]>([]);
   const [uploaderMaybeFailureList, setMaybeFailureList] = useState<
     UploaderData[]
   >([]);
-  const [cacheLoadedInNormal, setCacheLoadedInNormal] = useState(false);
+  const [cacheLoadedInNormal, setCacheLoadedInNormal] = useState(
+    !offlineStorage
+  );
   const [cacheLoadedInMaybeFailure, setCacheLoadedInMaybeFailure] =
     useState(false);
 
@@ -155,9 +171,29 @@ const Demo = () => {
     null as any
   );
 
+  const checkHash: ((hash: string) => Promise<number | true>) | undefined =
+    useMemo(
+      () =>
+        checkHashText
+          ? (new Function("hash", `return (${checkHashText})(hash)`) as (
+              hash: string
+            ) => Promise<number | true>)
+          : undefined,
+      [checkHashText]
+    );
+
   useEffect(() => {
     const normalUploader = createFileUploader({
-      offlineStorage: true,
+      offlineStorage,
+      immediately,
+      sizeLimit,
+      multiple,
+      accept,
+      maxNumberOfRequest,
+      retryCountLimit,
+      openHash,
+      numberOfThreads,
+      checkHash,
       spaceName: "normal",
       async upload({ chunks, start, end, size }, customParams: number) {
         let id = customParams;
@@ -165,7 +201,7 @@ const Demo = () => {
         if (customParams === undefined) {
           id = await applyUploadId();
         }
-        await uploadChunks({ id, chunks, start, end, size });
+        await uploadChunks({ id, chunks, start, end, size }, uploadSpeed);
         // return的数据会作为下一次的customParams，这样这个文件每次upload都可以带上你需要的customParams
         return id;
       },
@@ -179,7 +215,16 @@ const Demo = () => {
     });
     normalUploadRef.current = normalUploader.uploadFile;
     const maybeFailureUploader = createFileUploader<number>({
-      offlineStorage: true,
+      offlineStorage,
+      immediately,
+      sizeLimit,
+      multiple,
+      accept,
+      maxNumberOfRequest,
+      retryCountLimit,
+      openHash,
+      numberOfThreads,
+      checkHash,
       spaceName: "maybeFailure",
       async upload({ chunks, start, end, size }, customParams) {
         let id: number = customParams;
@@ -187,7 +232,10 @@ const Demo = () => {
         if (customParams === undefined) {
           id = await applyUploadId();
         }
-        await uploadChunksMaybeFailure({ id, chunks, start, end, size });
+        await uploadChunksMaybeFailure(
+          { id, chunks, start, end, size },
+          uploadSpeed
+        );
         // return的数据会作为下一次的customParams，这样这个文件每次upload都可以带上你需要的customParams
         return id;
       },
@@ -200,7 +248,24 @@ const Demo = () => {
       },
     });
     maybeFailureUploadRef.current = maybeFailureUploader.uploadFile;
-  }, []);
+
+    return () => {
+      clearAll();
+      clearAllMaybeFailure();
+    };
+  }, [
+    offlineStorage,
+    immediately,
+    sizeLimit,
+    multiple,
+    accept,
+    maxNumberOfRequest,
+    retryCountLimit,
+    openHash,
+    numberOfThreads,
+    checkHashText,
+    uploadSpeed,
+  ]);
 
   const handleUpload = useCallback(() => {
     if (normalUploadRef.current) {
@@ -228,6 +293,14 @@ const Demo = () => {
 
   const resumeAllMaybeFailure = useCallback(() => {
     uploaderMaybeFailureList.forEach((uploader) => uploader.resume());
+  }, [uploaderMaybeFailureList]);
+
+  const clearAll = useCallback(() => {
+    uploaderList.forEach((uploader) => uploader.remove());
+  }, [uploaderList]);
+
+  const clearAllMaybeFailure = useCallback(() => {
+    uploaderMaybeFailureList.forEach((uploader) => uploader.remove());
   }, [uploaderMaybeFailureList]);
 
   return (
@@ -286,6 +359,12 @@ const Demo = () => {
           </UploadList>
         </Right>
       </Content>
+      <div>
+        <Switch
+          checkedChildren="开启离线缓存"
+          unCheckedChildren="关闭离线缓存"
+        ></Switch>
+      </div>
     </DemoWrapper>
   );
 };

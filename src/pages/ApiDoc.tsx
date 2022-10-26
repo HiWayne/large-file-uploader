@@ -36,7 +36,7 @@ const apiPropertyMap: {
     key: "accept",
     desc: "上传的文件类型限制。格式是以逗号为分隔的唯一文件类型说明符列表。参考input标签的accept属性。如'image/png,.doc,.docx'",
     optional: true,
-    default: "''",
+    default: '""',
     type: "string",
   },
   {
@@ -55,27 +55,27 @@ const apiPropertyMap: {
   },
   {
     key: "offlineStorage",
-    desc: "是否开启离线缓存。离线缓存开启后，关闭页面也能找回未上传完成的文件继续上传。注意，开启后大文件存取耗时较长，可能有卡顿。",
+    desc: "是否开启离线缓存。离线缓存开启后，关闭页面也能找回未上传完成的文件继续上传。注意，谨慎开启。某些浏览器数据库对大文件存取耗时较长，可能更新不及时。",
     optional: true,
     default: "false",
     type: "boolean",
   },
   {
     key: "spaceName",
-    desc: "离线缓存空间名称。如果你打算创建多个上传器，你可能希望将它们的缓存记录隔离开，不设置则记录在公共空间。空间名称接受一个自定义字符串。",
+    desc: "离线缓存空间名称，开启离线缓存后有效。如果你打算创建多个上传器，你可能希望将它们的缓存记录隔离开。不设置则记录在公共空间。空间名称接受一个自定义字符串。",
     optional: true,
     default: "''",
     type: "string",
   },
   {
     key: "openHash",
-    desc: "是否需要计算文件hash，如果不需要可以关闭以明显提升速度",
+    desc: "是否需要计算文件hash，如果不需要可以明显提升速度",
     optional: true,
     default: "true",
     type: "boolean",
   },
   {
-    key: "numberOfChunks",
+    key: "numberOfThreads",
     desc: "计算hash时的线程数量。设置为1切换为单线程。",
     optional: true,
     default: "5",
@@ -97,7 +97,7 @@ const apiPropertyMap: {
   },
   {
     key: "numberOfChunks",
-    desc: "每次上传的切片数量。如果后端接口允许批量上传多个切片，设置多一些可以节省总请求带宽，但数量过多也会干扰断点续传粒度。",
+    desc: "每次上传的切片数量。如果后端接口允许批量上传多个切片，设置多一些可以略微节省总请求流量，但数量过多也会干扰断点续传粒度。",
     optional: true,
     default: "1",
     type: "number",
@@ -231,16 +231,26 @@ const ApiDoc = () => {
         {`import createFileUploader, type { UploaderData } from "large-file-uploader";
 
 const uploader = createFileUploader({
-    // 这里定义上传逻辑，是createFileUploader唯一的必须参数
+    // upload中定义上传逻辑，它是createFileUploader唯一必须的配置，每次分片上传都会调用它
+    // 这里举了一个分片上传例子，后端利用id知道分片属于哪个文件
     async upload({ chunks, start, end, size, hashSum }, customParams: number) {
-        let id = customParams;
-        // 假设分块上传后端可能需要一个id来记住上传的文件，所以开始先申请一个id
-        if (customParams === undefined) {
-            id = await applyUploadId();
-        }
-        await uploadChunks({ id, chunks, start, end, size });
-        // return的数据会作为下一次的customParams，这样这个文件每次upload都可以带上你需要的customParams
+      let id = customParams;
+      // 没有customParams代表第一次调用
+      if (id === undefined) {
+        // 假设后端可能需要一个id来记住上传的文件，所以一开始先申请一个id
+        id = await applyUploadId();
+      }
+      // 上传某个分片
+      const response = await uploadChunk({ id, chunks, start, end, size });
+      // 假设如果有response.end代表文件传完了
+      if (response.end) {
+        // 文件上传完成时的返回值会交给 UploaderData 中的result，里面可能有你需要的cdn地址等信息
+        return response.data
+      } else {
+        // 上传过程中，return的数据会作为下一次的customParams，这样该文件每次upload分片都可以带上你需要的customParams（如本例的id）
         return id;
+      }
+      // 这里只是举例，也可能你是通过文件hash来和后端确认文件的，那直接使用hashSum参数就可以了，hashSum是该文件所有分片hash的和
     },
     init(uploadDataList: UploaderData[]) {
       // 这个回调触发之后才可以使用uploader.uploadFile()
@@ -255,18 +265,22 @@ const uploader = createFileUploader({
       // 发生错误时
     },
 });
-// uploader.uploadFile，会调起文件选择，然后上传
+// 拿到上述代码的 uploader 后，调用 uploader.uploadFile，它会调起文件选择器。选择完文件后自动开始上传（你也可以使用 immediately: false 配置，这时仅仅将文件设为暂停状态放入队列中，由用户决定何时开始上传）
+
 /* UploaderData: 
   {   
     result: "completed" | "failure" | "uploading" | "initialization" | "suspended" | "cancel"; // 上传状态
     progress: number; // 当前进度 0~1
     file: File; // 原文件
+    result: any; // 上传完成后的后端返回结果
     isCache?: boolean; // 是否是缓存
     pause: () => void; // 暂停
     resume: () => void; // 继续
     remove: () => void; // 删除
   }
 */
+
+// 上传队列中所有文件项对应 uploadDataList: UploaderData[] 数组, 里面包含每个上传项各自的暂停、恢复、移除操作，分别是 uploadDataItem: UploaderData 里的 pause、resume、remove方法
 `}
       </SyntaxHighlighter>
 

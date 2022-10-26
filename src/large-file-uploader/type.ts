@@ -9,6 +9,7 @@ export interface ProgressData {
     | "waiting";
   progress: number;
   file: File;
+  result: any;
   isCache?: boolean;
 }
 

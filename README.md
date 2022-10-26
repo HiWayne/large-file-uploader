@@ -5,10 +5,11 @@
 ## 特点
 
 - 断点续传，不必重头再来
-- 基于 indexedDB 的离线缓存，离线也能恢复进度
+- 支持秒传功能
+- 基于 indexedDB 的文件缓存，离线也能恢复进度
 - 多线程计算，面对大文件处理更快
-- 只提供状态数据，你可以自由定制 UI
-- 丰富的选项配置，你可以限制文件类型、每个切片大小、线程数、请求并发数、是否开启缓存等
+- 只提供下载队列的状态数据，你可以自由定制 UI
+- 丰富的配置，你可以限制文件类型、每个切片大小、线程数、请求并发数、是否开启离线缓存等
 
 ## Getting Started
 
@@ -16,19 +17,26 @@
 import createFileUploader, type { UploaderData } from "large-file-uploader";
 
 const uploader = createFileUploader({
-    // 这里定义上传逻辑，是createFileUploader唯一的必须参数
+    // upload中定义上传逻辑，它是createFileUploader唯一必须的配置，每次分片上传都会调用它
+    // 这里举了一个分片上传例子，后端利用id知道分片属于哪个文件
     async upload({ chunks, start, end, size, hashSum }, customParams: number) {
-        // 假设后端可能需要一个id来记住上传的文件，所以一开始先申请一个id
         let id = customParams;
         // 没有customParams代表第一次调用
-        if (customParams === undefined) {
+        if (id === undefined) {
+            // 假设后端可能需要一个id来记住上传的文件，所以一开始先申请一个id
             id = await applyUploadId();
         }
-        await uploadChunks({ id, chunks, start, end, size });
-        // return的数据会作为下一次的customParams，这样该文件每次upload分片都可以带上你需要的customParams
-        return id;
-
-        // 也可能你是通过文件hash来和后端确认文件的，那直接使用hashSum参数就可以了，hashSum是该文件所有分片hash的和
+        // 上传某个分片
+        const response = await uploadChunk({ id, chunks, start, end, size });
+        // 假设如果有response.end代表文件传完了
+        if (response.end) {
+            // 文件上传完成时的返回值会交给 UploaderData 中的result，里面可能有你需要的cdn地址等信息
+            return response.data
+        } else {
+            // 上传过程中，return的数据会作为下一次的customParams，这样该文件每次upload分片都可以带上你需要的customParams（如本例的id）
+            return id;
+        }
+        // 这里只是举例，也可能你是通过文件hash来和后端确认文件标识的，那直接使用hashSum参数就可以了，hashSum是该文件所有分片hash的和
     },
     init(uploadDataList: UploaderData[]) {
         // 这个回调触发之后才可以使用uploader.uploadFile()
@@ -42,6 +50,9 @@ const uploader = createFileUploader({
     error(uploadDataList: UploaderData[]) {
         // 发生错误时
     },
+    checkHash(hash: string) {
+        // 如果返回true，则可以秒传
+    }
 });
 
 /* UploaderData:
@@ -49,6 +60,7 @@ const uploader = createFileUploader({
     result: "completed" | "failure" | "uploading" | "initialization" | "suspended" | "cancel" | "waiting"; // 上传状态
     progress: number; // 当前上传进度 0~1
     file: File; // 原文件
+    result: any; // 上传完成后的后端返回结果
     isCache?: boolean; // 是否是缓存
     pause: () => void; // 暂停
     resume: () => void; // 继续
@@ -57,6 +69,6 @@ const uploader = createFileUploader({
 */
 ```
 
-拿到 `uploader` 后调用 `uploader.uploadFile`，会调起文件选择框，然后上传
+拿到上述代码的 `uploader` 后，调用 `uploader.uploadFile`，它会调起文件选择器。选择完文件后自动开始上传（你也可以使用 immediately: false 配置，这时仅仅将文件设为暂停状态放入队列中，由用户决定何时开始上传）
 
-上传队列中所有项目对应 `uploadDataList: UploaderData[]` 数组, ，每个上传项目各自的暂停、恢复、移除操作，是 `uploadDataItem: UploaderData` 里的 `pause`、`resume`、`remove`方法
+上传队列中所有文件项对应 `uploadDataList: UploaderData[]` 数组, 里面包含每个上传项各自的暂停、恢复、移除操作，分别是 `uploadDataItem: UploaderData` 里的 `pause`、`resume`、`remove`方法
