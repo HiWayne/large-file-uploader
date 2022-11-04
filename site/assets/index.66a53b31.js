@@ -165,7 +165,7 @@ margin: auto;
       transform: translate(-50%, -101%) rotate(1000deg);
     }
   }
-`,av=O.exports.lazy(()=>Es(()=>import("./Home.2caf062e.js"),[])),cv=O.exports.lazy(()=>Es(()=>import("./Demo.04b53d3e.js"),[])),fv=O.exports.lazy(()=>Es(()=>import("./ApiDoc.eaf25bd8.js"),["assets/ApiDoc.eaf25bd8.js","assets/Demo.04b53d3e.js"])),dv=()=>Q(O.exports.Suspense,{fallback:Q(sv,{}),children:Q(nv,{children:Mr(tv,{children:[Q(xl,{path:"/",element:Q(av,{})}),Q(xl,{path:"/demo",element:Q(cv,{})}),Q(xl,{path:"/api",element:Q(fv,{})})]})})}),pv=qm`
+`,av=O.exports.lazy(()=>Es(()=>import("./Home.c28f05b0.js"),[])),cv=O.exports.lazy(()=>Es(()=>import("./Demo.cb74a3af.js"),[])),fv=O.exports.lazy(()=>Es(()=>import("./ApiDoc.b6e44e76.js"),["assets/ApiDoc.b6e44e76.js","assets/Demo.cb74a3af.js"])),dv=()=>Q(O.exports.Suspense,{fallback:Q(sv,{}),children:Q(nv,{basename:"/large-file-uploader/site/",children:Mr(tv,{children:[Q(xl,{path:"/",element:Q(av,{})}),Q(xl,{path:"/demo",element:Q(cv,{})}),Q(xl,{path:"/api",element:Q(fv,{})})]})})}),pv=qm`
   :root {
     font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
     font-size: 16px;

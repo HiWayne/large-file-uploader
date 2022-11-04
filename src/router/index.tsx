@@ -9,7 +9,7 @@ const LazyApiDoc = lazy(() => import("../pages/ApiDoc"));
 const Router = () => {
   return (
     <Suspense fallback={<Loading />}>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           <Route path="/" element={<LazyHome />} />
           <Route path="/demo" element={<LazyDemo />} />
