@@ -94,6 +94,6 @@ const uploader = createFileUploader({
 
 上传队列中所有文件项对应 `uploadDataList: UploaderData[]` 数组, 里面包含每个上传项各自的暂停、恢复、移除操作，分别是 `uploadDataItem: UploaderData` 里的 `pause`、`resume`、`remove`方法
 
-## API Document
+## Api Document
 
 [完整文档](https://hiwayne.github.io/large-file-uploader/site/api/)
