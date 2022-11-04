@@ -1,8 +1,19 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import reactLogo from "../assets/react.svg";
 
 const Home = () => {
   const navigate = useNavigate();
+
+  // let github pages support SPA
+  useEffect(() => {
+    const path = localStorage.getItem("path");
+    if (path) {
+      localStorage.removeItem("path");
+      navigate(path);
+    }
+  }, []);
+
   return (
     <div className="App">
       <div>

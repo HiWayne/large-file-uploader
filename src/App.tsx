@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { createGlobalStyle } from "styled-components";
 import Router from "./router";
 
@@ -125,16 +123,6 @@ const GlobalStyle = createGlobalStyle`
 `;
 
 function App() {
-  // let github pages support SPA
-  const navigate = useNavigate();
-  useEffect(() => {
-    const path = localStorage.getItem("path");
-    if (path) {
-      localStorage.removeItem("path");
-      navigate(path);
-    }
-  }, []);
-
   return (
     <>
       <GlobalStyle />

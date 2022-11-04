@@ -64,7 +64,6 @@ type FullyLargeFileUploaderOptions<T> = LargeFileUploaderOptionalOptions &
   LargeFileUploaderRequiredOptions<T>;
 
 const computeUploadDataList = (list: UploaderData[]) => {
-  console.log(list);
   return list.filter((uploadData) => uploadData.status !== "cancel").reverse();
 };
 
@@ -412,7 +411,6 @@ const createHiddenUploaderInput = (() => {
           };
           handleProcess(computeUploadDataList(currentUploadList));
           const uploadList = files.map(async (file, index) => {
-            console.log(`file${index}`);
             const spark = new SparkMD5();
             const chunks: Blob[] = [];
             const size = file.size;
@@ -446,7 +444,6 @@ const createHiddenUploaderInput = (() => {
               if (openHash) {
                 if (numberOfThreads > 1) {
                   const results = await Promise.all(multithreadTasksPromise);
-                  console.log("slice completed", index);
                   md5HexHash = results.reduce(
                     (hash: string, result) => hash + result,
                     ""
@@ -480,6 +477,7 @@ const createHiddenUploaderInput = (() => {
               }
             } else {
               chunks.push(file);
+              length = chunks.length;
             }
             const _retryCountRef = { current: 0 };
             const suspendedRef = { current: false };
@@ -509,7 +507,6 @@ const createHiddenUploaderInput = (() => {
                   const uploader = findFirstWaiting(
                     currentUploadListRef.current
                   );
-                  console.log(uploader);
                   if (uploader) {
                     uploader.resume();
                   }

@@ -195,6 +195,8 @@ const Demo = () => {
       numberOfThreads,
       checkHash,
       spaceName: "normal",
+      minSlicedFileSize: 5000,
+      sliceSize: 1000,
       async upload({ chunks, start, end, size }, customParams: number) {
         let id = customParams;
         // 分块上传后端可能需要一个id来记住上传的文件，所以开始先申请一个id
@@ -226,6 +228,8 @@ const Demo = () => {
       numberOfThreads,
       checkHash,
       spaceName: "maybeFailure",
+      minSlicedFileSize: 10000,
+      sliceSize: 1000,
       async upload({ chunks, start, end, size }, customParams) {
         let id: number = customParams;
         // 分块上传后端可能需要一个id来记住上传的文件，所以开始先申请一个id
@@ -317,13 +321,16 @@ const Demo = () => {
         <h3>Demo</h3>
       </Nav>
       <Desc className="read-the-docs">
-        上传可选多个文件，上传队列中的每一项可单独暂停/恢复。请求失败自动重试，默认重试3次依然失败转为手动恢复。
+        上传可一次性选多个文件，每个上传项可单独暂停/恢复/删除。请求失败自动重试，默认自动重试3次然后转为手动重试。
+      </Desc>
+      <Desc className="read-the-docs" style={{ marginTop: "-12px" }}>
+        demo中的上传器最小分片限制已被设置为5kb，≥5kb的小文件也可体验断点续传效果。
       </Desc>
       <ApiButton onClick={() => navigate("/api")}>查看API文档</ApiButton>
       <Content>
         <Left>
           <h3>请求100%成功</h3>
-          <div>
+          <div style={{ textAlign: "center" }}>
             <button onClick={handleUpload}>选择上传文件</button>
             {uploaderList.length ? (
               <div style={{ marginTop: "20px" }}>
@@ -342,7 +349,7 @@ const Demo = () => {
         </Left>
         <Right>
           <h3>请求60%几率失败</h3>
-          <div>
+          <div style={{ textAlign: "center" }}>
             <button onClick={handleUploadMaybeFailure}>选择上传文件</button>
             {uploaderMaybeFailureList.length ? (
               <div style={{ marginTop: "20px" }}>
@@ -359,12 +366,12 @@ const Demo = () => {
           </UploadList>
         </Right>
       </Content>
-      <div>
+      {/* <div>
         <Switch
           checkedChildren="开启离线缓存"
           unCheckedChildren="关闭离线缓存"
         ></Switch>
-      </div>
+      </div> */}
     </DemoWrapper>
   );
 };
