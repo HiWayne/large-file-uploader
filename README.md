@@ -19,7 +19,7 @@
 
 </div>
 
-## 特点
+## Feature
 
 - 断点续传，不必重头再来
 - 支持秒传功能
@@ -28,9 +28,9 @@
 - 只提供下载队列的状态数据，你可以自由定制 UI
 - 丰富的配置，你可以限制文件类型、每个切片大小、线程数、请求并发数、是否开启离线缓存等
 
-## 演示
+## Demo
 
-https://hiwayne.github.io/large-file-uploader/site/demo/
+[在线体验](https://hiwayne.github.io/large-file-uploader/site/demo/)
 
 ## Getting Started
 
@@ -94,6 +94,6 @@ const uploader = createFileUploader({
 
 上传队列中所有文件项对应 `uploadDataList: UploaderData[]` 数组, 里面包含每个上传项各自的暂停、恢复、移除操作，分别是 `uploadDataItem: UploaderData` 里的 `pause`、`resume`、`remove`方法
 
-## 文档
+## Document
 
-https://hiwayne.github.io/large-file-uploader/site/
+[完整文档](https://hiwayne.github.io/large-file-uploader/site/)
