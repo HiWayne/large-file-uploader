@@ -28,7 +28,7 @@ const Home = () => {
       <h1>文件上传</h1>
       <h3>Large-File-Uploader</h3>
       <div className="card">
-        <p>· 大文件切片</p>
+        <p>· 多线程切片</p>
         <p>· 断点续传</p>
         <p>· 离线保存</p>
       </div>
