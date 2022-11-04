@@ -28,6 +28,10 @@
 - 只提供下载队列的状态数据，你可以自由定制 UI
 - 丰富的配置，你可以限制文件类型、每个切片大小、线程数、请求并发数、是否开启离线缓存等
 
+## 演示
+
+https://hiwayne.github.io/large-file-uploader/site/demo/
+
 ## Getting Started
 
 ```ts
@@ -89,3 +93,7 @@ const uploader = createFileUploader({
 拿到上述代码的 `uploader` 后，调用 `uploader.uploadFile`，它会调起文件选择器。选择完文件后自动开始上传（你也可以使用 immediately: false 配置，这时仅仅将文件设为暂停状态放入队列中，由用户决定何时开始上传）
 
 上传队列中所有文件项对应 `uploadDataList: UploaderData[]` 数组, 里面包含每个上传项各自的暂停、恢复、移除操作，分别是 `uploadDataItem: UploaderData` 里的 `pause`、`resume`、`remove`方法
+
+## 文档
+
+https://hiwayne.github.io/large-file-uploader/site/
