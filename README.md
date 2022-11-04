@@ -4,14 +4,16 @@
 
 专为上传功能而优化
 
-[![NPM version][npm-image]][npm-url] [![NPM downloads][download-image]][download-url] [![][bundlesize-js-image]][unpkg-js-url]
+[![GITHUB][github-image]][github-url] [![NPM version][npm-image]][npm-url] [![NPM downloads][download-image]][download-url] [![][bundlesize-js-image]][unpkg-js-url]
 
 [npm-image]: http://img.shields.io/npm/v/large-file-uploader.svg?style=flat-square
 [npm-url]: http://npmjs.org/package/large-file-uploader
 [download-image]: https://img.shields.io/npm/dm/large-file-uploader.svg?style=flat-square
 [download-url]: https://npmjs.org/package/large-file-uploader
-[bundlesize-js-image]: https://img.badgesize.io/https:/unpkg.com/large-file-uploader/dist/index.min.js?label=index.min.js&compression=gzip&style=flat-square
+[bundlesize-js-image]: https://img.badgesize.io/https:/unpkg.com/large-file-uploader/dist/index.min.js?label=gzip+umd+size&compression=gzip&style=flat-square
 [unpkg-js-url]: https://unpkg.com/browse/large-file-uploader/dist/index.min.js
+[github-image]: https://img.shields.io/badge/GitHub-star-yellow.svg?style=social&logo=github
+[github-url]: https://github.com/HiWayne/large-file-uploader
 
 </div>
 
