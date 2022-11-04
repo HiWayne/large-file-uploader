@@ -4,7 +4,7 @@
 
 专为上传功能而优化
 
-[![GITHUB][github-image]][github-url] [![NPM version][npm-image]][npm-url] [![NPM downloads][download-image]][download-url] [![][bundlesize-js-image]][unpkg-js-url]
+[![GITHUB][github-image]][github-url] [![NPM version][npm-image]][npm-url] [![][bundlesize-js-image]][unpkg-js-url]
 
 [npm-image]: http://img.shields.io/npm/v/large-file-uploader.svg?style=flat-square
 [npm-url]: http://npmjs.org/package/large-file-uploader
