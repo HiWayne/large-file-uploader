@@ -2,10 +2,9 @@
 
 专为上传功能而优化
 
-[npm-image]: http://img.shields.io/npm/v/antd.svg?style=flat-square
-[npm-url]: http://npmjs.org/package/antd
-[bundlesize-js-image]: https://img.badgesize.io/https:/unpkg.com/antd/dist/antd.min.js?label=antd.min.js&compression=gzip&style=flat-square
-[bundlesize-css-image]: https://img.badgesize.io/https:/unpkg.com/antd/dist/antd.min.css?label=antd.min.css&compression=gzip&style=flat-square
+[npm-image]: http://img.shields.io/npm/v/large-file-uploader.svg?style=flat-square
+[npm-url]: http://npmjs.org/package/large-file-uploader
+[bundlesize-js-image]: https://img.badgesize.io/https:/unpkg.com/large-file-uploader/dist/index.min.js?label=index.min.js&compression=gzip&style=flat-square
 
 ## 特点
 
