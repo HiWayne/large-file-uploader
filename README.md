@@ -4,7 +4,7 @@
 
 专为上传功能而优化
 
-[![GITHUB][github-image]][github-url] [![NPM version][npm-image]][npm-url] [![][bundlesize-js-image]][unpkg-js-url]
+[![GITHUB][github-image]][github-url] [![NPM version][npm-image]][npm-url] [![][bundlesize-js-image]][unpkg-js-url] [![LICENSE][license-image]][license-url]
 
 [npm-image]: http://img.shields.io/npm/v/large-file-uploader.svg?style=flat-square
 [npm-url]: http://npmjs.org/package/large-file-uploader
@@ -14,6 +14,8 @@
 [unpkg-js-url]: https://unpkg.com/browse/large-file-uploader/dist/index.min.js
 [github-image]: https://img.shields.io/badge/GitHub-star-yellow.svg?style=social&logo=github
 [github-url]: https://github.com/HiWayne/large-file-uploader
+[license-image]: https://img.shields.io/badge/License-MIT-yellow.svg
+[license-url]: https://github.com/HiWayne/large-file-uploader/LICENSE
 
 </div>
 

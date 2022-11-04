@@ -1,7 +1,7 @@
 {
   "name": "large-file-uploader",
   "description": "file uploader, supporting file segmentation, Resume from break point, Offline storage",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "scripts": {
     "dev": "vite",
     "build": "tsc && rollup -c rollup.config.js && vite build",
@@ -47,5 +47,6 @@
     "styled-components": "^5.3.6",
     "typescript": "^4.6.4",
     "vite": "^3.1.0"
-  }
+  },
+  "license": "MIT"
 }
