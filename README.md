@@ -15,7 +15,7 @@
 [github-image]: https://img.shields.io/badge/GitHub-star-yellow.svg?style=social&logo=github
 [github-url]: https://github.com/HiWayne/large-file-uploader
 [license-image]: https://img.shields.io/badge/License-MIT-yellow.svg
-[license-url]: https://github.com/HiWayne/large-file-uploader/LICENSE
+[license-url]: https://github.com/HiWayne/large-file-uploader/blob/master/LICENSE
 
 </div>
 
