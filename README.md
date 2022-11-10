@@ -32,6 +32,8 @@
 
 [在线体验](https://hiwayne.github.io/large-file-uploader/site/?demo)
 
+在线体验的实现代码在[这里](https://github.com/HiWayne/large-file-uploader/blob/master/src/pages/Demo.tsx)
+
 ## Getting Started
 
 ```ts

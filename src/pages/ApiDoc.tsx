@@ -132,7 +132,7 @@ const apiMethodMap: {
   {
     key: "checkHash",
     desc: "从后端查询上传进度的方法。接受文件hash参数，可以给后端以查询文件上传进度，Promise返回值true表示已完成、number表示下一个该上传index为number的分块",
-    optional: false,
+    optional: true,
     default: "",
     type: "(hash: string) => Promise<number | true>",
   },
