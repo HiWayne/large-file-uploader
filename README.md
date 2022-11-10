@@ -30,7 +30,7 @@
 
 ## Demo
 
-[在线体验](https://hiwayne.github.io/large-file-uploader/site/demo/)
+[在线体验](https://hiwayne.github.io/large-file-uploader/site/?demo)
 
 ## Getting Started
 
@@ -96,4 +96,4 @@ const uploader = createFileUploader({
 
 ## Api Document
 
-[完整文档](https://hiwayne.github.io/large-file-uploader/site/api/)
+[完整文档](https://hiwayne.github.io/large-file-uploader/site/?api)

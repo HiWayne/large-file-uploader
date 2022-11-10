@@ -8,10 +8,18 @@ const Home = () => {
 
   // let github pages support SPA
   useEffect(() => {
-    const path = localStorage.getItem("path");
-    if (path) {
-      localStorage.removeItem("path");
-      navigate(path);
+    const search = window.location.search
+    if (search) {
+      const path = search.replace(/^\?/, '')
+      if (path) {
+        navigate(`/${path}`)
+      }
+    } else {
+      const path = localStorage.getItem("path");
+      if (path) {
+        localStorage.removeItem("path");
+        navigate(path);
+      }
     }
   }, []);
 
