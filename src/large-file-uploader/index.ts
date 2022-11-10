@@ -815,9 +815,7 @@ const createFileUploader = <T>(
                       status: "suspended",
                       progress: computeProgress(sliceStartRef.current),
                     });
-                    options.update(
-                      computeUploadDataList(currentUploadList)
-                    );
+                    options.update(computeUploadDataList(currentUploadList));
                     const uploader = findFirstWaiting(
                       currentUploadListRef.current
                     );
@@ -876,9 +874,7 @@ const createFileUploader = <T>(
                   currentNumberOfRequestRef.current--;
                   canceledRef.current = true;
                   currentUploadList[index].status = "cancel";
-                  options.update(
-                    computeUploadDataList(currentUploadList)
-                  );
+                  options.update(computeUploadDataList(currentUploadList));
                   db.files.delete(uploadData.fileObject.id!);
                   resolve(true);
                 };

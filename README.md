@@ -99,3 +99,7 @@ const uploader = createFileUploader({
 ## Api Document
 
 [完整文档](https://hiwayne.github.io/large-file-uploader/site/?api)
+
+## Tip
+
+大文件离线存储或缓存频繁更新，在某些浏览器下响应非常慢，可能存在读取/更新不及时的现象（说的就是你 Chrome ），在 Firefox 中表现较好。

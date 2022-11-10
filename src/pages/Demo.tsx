@@ -248,6 +248,7 @@ const Demo = () => {
         setMaybeFailureList(uploadDataList);
       },
       update(uploadDataList) {
+        console.log('update')
         setMaybeFailureList(uploadDataList);
       },
     });

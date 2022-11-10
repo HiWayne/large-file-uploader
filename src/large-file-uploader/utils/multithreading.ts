@@ -1,3 +1,15 @@
+const isEqualArray = (array1: any[], array2: any[]) => {
+  if (
+    Array.isArray(array1) &&
+    Array.isArray(array2) &&
+    array1.length === array2.length
+  ) {
+    return array1.every((item, index) => item === array2[index]);
+  } else {
+    return false;
+  }
+};
+
 export const createMultithread = (url: string, count: number) => {
   return new Array(count).fill(true).map(() => {
     const worker = new Worker(url);
@@ -48,7 +60,7 @@ const promiseHandlers: {
     reject: (value?: any) => void;
   }[];
 } = {};
-let isListened = false;
+let prevThreads: Worker[] = [];
 export const createSetTaskToMultithreading = (
   threads: Worker[],
   task: string
@@ -70,11 +82,11 @@ export const createSetTaskToMultithreading = (
       promiseHandlers[data.task][data.index].reject(data.data);
     }
   };
-  if (!isListened) {
+  if (!isEqualArray(threads, prevThreads)) {
     threads.forEach((thread) => {
       thread.addEventListener("message", onmessage);
     });
-    isListened = true;
+    prevThreads = threads;
   }
   return (taskData: any) => {
     let _resolve: (value?: any) => void = () => {},
