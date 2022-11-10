@@ -269,7 +269,7 @@ const uploader = createFileUploader({
 
 /* UploaderData: 
   {   
-    result: "completed" | "failure" | "uploading" | "initialization" | "suspended" | "cancel"; // 上传状态
+    status: "completed" | "failure" | "uploading" | "initialization" | "suspended" | "cancel"; // 上传状态
     progress: number; // 当前进度 0~1
     file: File; // 原文件
     result: any; // 上传完成后的后端返回结果
