@@ -211,7 +211,7 @@ const Demo = () => {
         setCacheLoadedInNormal(true);
         setList(uploadDataList);
       },
-      handleProcess(uploadDataList) {
+      update(uploadDataList) {
         setList(uploadDataList);
       },
     });
@@ -247,7 +247,7 @@ const Demo = () => {
         setCacheLoadedInMaybeFailure(true);
         setMaybeFailureList(uploadDataList);
       },
-      handleProcess(uploadDataList) {
+      update(uploadDataList) {
         setMaybeFailureList(uploadDataList);
       },
     });

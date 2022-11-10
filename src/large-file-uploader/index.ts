@@ -36,7 +36,7 @@ interface LargeFileUploaderOptionalOptions {
   // 初始化完成回调
   gotCache: (cacheList: UploaderData[], uploadDataList: UploaderData[]) => void;
   // 上传进度回调函数
-  handleProcess: (uploadDataList: UploaderData[]) => void;
+  update: (uploadDataList: UploaderData[]) => void;
   error: (uploadDataList: UploaderData[]) => void;
   // 上传全部完成回调函数，result: true，data: UploaderData[]
   success: (data: { result: boolean; data: UploaderData[] }) => void;
@@ -74,7 +74,7 @@ const autoUpload = <T>(
     upload,
     updateUploadDataList,
     computeProgress,
-    handleProcess,
+    update,
     resolve,
     reject,
     sliceStartRef,
@@ -112,7 +112,7 @@ const autoUpload = <T>(
       progressData: Partial<UploaderData>
     ) => UploaderData[];
     computeProgress: (n: number) => number;
-    handleProcess: (progressDataList: UploaderData[]) => void;
+    update: (progressDataList: UploaderData[]) => void;
     resolve: (value?: any) => void;
     reject: (value?: any) => void;
     sliceStartRef: { current: number };
@@ -147,7 +147,7 @@ const autoUpload = <T>(
         upload,
         updateUploadDataList,
         computeProgress,
-        handleProcess,
+        update,
         resolve,
         reject,
         sliceStartRef,
@@ -175,7 +175,7 @@ const autoUpload = <T>(
         status: "failure",
         progress: computeProgress(start),
       });
-      handleProcess(computeUploadDataList(currentUploadListRef.current));
+      update(computeUploadDataList(currentUploadListRef.current));
       reject(start);
     }
   };
@@ -183,7 +183,7 @@ const autoUpload = <T>(
     updateUploadDataList(index, {
       status: "uploading",
     });
-    handleProcess(computeUploadDataList(currentUploadListRef.current));
+    update(computeUploadDataList(currentUploadListRef.current));
     if (idRef.current !== undefined) {
       if (typeof idRef.current === "number") {
         db.files.update(idRef.current, {
@@ -205,7 +205,7 @@ const autoUpload = <T>(
     updateUploadDataList(index, {
       status: "waiting",
     });
-    handleProcess(computeUploadDataList(currentUploadListRef.current));
+    update(computeUploadDataList(currentUploadListRef.current));
     if (idRef.current !== undefined) {
       if (typeof idRef.current === "number") {
         db.files.update(idRef.current, {
@@ -262,7 +262,7 @@ const autoUpload = <T>(
         status: "uploading",
         progress: computeProgress(nextStart),
       });
-      handleProcess(computeUploadDataList(currentUploadListRef.current));
+      update(computeUploadDataList(currentUploadListRef.current));
       // 完成
       if (nextStart >= length) {
         currentNumberOfRequestRef.current--;
@@ -272,7 +272,7 @@ const autoUpload = <T>(
           progress: computeProgress(length),
           result: data,
         });
-        handleProcess(computeUploadDataList(currentUploadListRef.current));
+        update(computeUploadDataList(currentUploadListRef.current));
         resolve(true);
         if (idRef.current !== undefined) {
           if (typeof idRef.current === "number") {
@@ -294,7 +294,7 @@ const autoUpload = <T>(
         upload,
         updateUploadDataList,
         computeProgress,
-        handleProcess,
+        update,
         resolve,
         reject,
         sliceStartRef,
@@ -366,7 +366,7 @@ const createHiddenUploaderInput = (() => {
       openHash,
       maxNumberOfRequest,
       upload,
-      handleProcess,
+      update,
       checkHash,
     }: FullyLargeFileUploaderOptions<T>,
     currentUploadList: UploaderData[],
@@ -409,7 +409,7 @@ const createHiddenUploaderInput = (() => {
             });
             return progressList as UploaderData[];
           };
-          handleProcess(computeUploadDataList(currentUploadList));
+          update(computeUploadDataList(currentUploadList));
           const uploadList = files.map(async (file, index) => {
             const spark = new SparkMD5();
             const chunks: Blob[] = [];
@@ -459,21 +459,21 @@ const createHiddenUploaderInput = (() => {
                       status: "completed",
                       progress: 1,
                     });
-                    handleProcess(computeUploadDataList(currentUploadList));
+                    update(computeUploadDataList(currentUploadList));
                   } else if (typeof result === "number") {
                     sliceStartRef.current = result;
                     updateUploadDataList(index, {
                       status: "suspended",
                       progress: computeProgress(result),
                     });
-                    handleProcess(computeUploadDataList(currentUploadList));
+                    update(computeUploadDataList(currentUploadList));
                   }
                 }
               } else {
                 updateUploadDataList(index, {
                   status: "suspended",
                 });
-                handleProcess(computeUploadDataList(currentUploadList));
+                update(computeUploadDataList(currentUploadList));
               }
             } else {
               chunks.push(file);
@@ -503,7 +503,7 @@ const createHiddenUploaderInput = (() => {
                     status: "suspended",
                     progress: computeProgress(sliceStartRef.current),
                   });
-                  handleProcess(computeUploadDataList(currentUploadList));
+                  update(computeUploadDataList(currentUploadList));
                   const uploader = findFirstWaiting(
                     currentUploadListRef.current
                   );
@@ -546,7 +546,7 @@ const createHiddenUploaderInput = (() => {
                       upload,
                       updateUploadDataList,
                       computeProgress,
-                      handleProcess,
+                      update,
                       resolve,
                       reject,
                       sliceStartRef,
@@ -578,7 +578,7 @@ const createHiddenUploaderInput = (() => {
                 updateUploadDataList(index, {
                   status: "cancel",
                 });
-                handleProcess(computeUploadDataList(currentUploadList));
+                update(computeUploadDataList(currentUploadList));
                 if (
                   idRef.current !== undefined &&
                   typeof idRef.current !== "number"
@@ -680,7 +680,7 @@ const setDefaultOptions = <T>(
     openHash: true,
     maxNumberOfRequest: 6,
     gotCache: () => {},
-    handleProcess: () => {},
+    update: () => {},
     error: (error) => {
       console.error("Large-File-Uploader occurred errors, error detail:");
       console.error(error);
@@ -815,7 +815,7 @@ const createFileUploader = <T>(
                       status: "suspended",
                       progress: computeProgress(sliceStartRef.current),
                     });
-                    options.handleProcess(
+                    options.update(
                       computeUploadDataList(currentUploadList)
                     );
                     const uploader = findFirstWaiting(
@@ -847,7 +847,7 @@ const createFileUploader = <T>(
                         upload: options.upload,
                         updateUploadDataList: updateUploadDataList,
                         computeProgress,
-                        handleProcess: options.handleProcess,
+                        update: options.update,
                         resolve,
                         reject,
                         sliceStartRef,
@@ -876,7 +876,7 @@ const createFileUploader = <T>(
                   currentNumberOfRequestRef.current--;
                   canceledRef.current = true;
                   currentUploadList[index].status = "cancel";
-                  options.handleProcess(
+                  options.update(
                     computeUploadDataList(currentUploadList)
                   );
                   db.files.delete(uploadData.fileObject.id!);
@@ -892,7 +892,7 @@ const createFileUploader = <T>(
             currentUploadList.slice(0, uploadDataListInStorage.length),
             currentUploadList
           );
-          options.handleProcess(computeUploadDataList(currentUploadList));
+          options.update(computeUploadDataList(currentUploadList));
           return promise;
         }
       )

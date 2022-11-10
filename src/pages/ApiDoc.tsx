@@ -144,8 +144,8 @@ const apiMethodMap: {
     type: "(cacheList: UploaderData[], uploaderDataList: UploaderData[]) => void",
   },
   {
-    key: "handleProcess",
-    desc: "上传进度回调函数，每当上传进度、上传状态发生变更时会被触发，包括缓存队列。",
+    key: "update",
+    desc: "上传队列更新回调函数，每当上传进度、上传状态发生变更、队列增删时会被触发，包括离线队列。",
     optional: true,
     default: "",
     type: "(uploaderDataList: UploaderData[]) => void",
@@ -255,7 +255,7 @@ const uploader = createFileUploader({
     init(uploadDataList: UploaderData[]) {
       // 这个回调触发之后才可以使用uploader.uploadFile()
     },
-    handleProcess(uploadDataList: UploaderData[]) {
+    update(uploadDataList: UploaderData[]) {
       // 这里可以收到上传列表状态的更新（包括进度、队列增删等变化）
     },
     success() {

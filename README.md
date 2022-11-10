@@ -62,7 +62,7 @@ const uploader = createFileUploader({
     init(uploadDataList: UploaderData[]) {
         // 这个回调触发之后才可以使用uploader.uploadFile()
     },
-    handleProcess(uploadDataList: UploaderData[]) {
+    update(uploadDataList: UploaderData[]) {
         // 这里可以收到上传列表状态的更新（包括进度、队列增删等变化）
     },
     success() {
