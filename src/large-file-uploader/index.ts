@@ -33,7 +33,7 @@ interface LargeFileUploaderOptionalOptions {
   numberOfThreads: number;
   // 最大请求数
   maxNumberOfRequest: number;
-  // 初始化完成回调
+  // 缓存初始化完成回调
   gotCache: (cacheList: UploaderData[], uploadDataList: UploaderData[]) => void;
   // 上传进度回调函数
   update: (uploadDataList: UploaderData[]) => void;

@@ -59,11 +59,11 @@ const uploader = createFileUploader({
         }
         // 这里只是举例，也可能你是通过文件hash来和后端确认文件标识的，那直接使用hashSum参数就可以了，hashSum是该文件所有分片hash的和
     },
-    init(uploadDataList: UploaderData[]) {
-        // 这个回调触发之后才可以使用uploader.uploadFile()
+    gotCache: (cacheList: UploaderData[], uploadDataList: UploaderData[]) {
+        // 在开启离线缓存的情况下，这个回调可以拿到上次未传完的离线文件缓存队列（cacheList）和 总上传队列（uploadDataList）
     },
     update(uploadDataList: UploaderData[]) {
-        // 这里可以收到上传列表状态的更新（包括进度、队列增删等变化）
+        // 这里可以收到上传列表状态的更新（包括进度、队列增删等变化），包括离线缓存队列
     },
     success() {
         // 上传全部成功后
