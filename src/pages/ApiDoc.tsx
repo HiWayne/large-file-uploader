@@ -82,6 +82,13 @@ const apiPropertyMap: {
     type: "number",
   },
   {
+    key: "slice",
+    desc: "是否开启切片。如果关闭，chunks数组的第一项就是完整文件，类型是File。",
+    optional: true,
+    default: "true",
+    type: "boolean",
+  },
+  {
     key: "minSlicedFileSize",
     desc: "允许切片的最小文件大小，单位字节，默认1mb。断点续传需要将文件切片，小于这个大小的文件将不会切片，作为一个整体上传。",
     optional: true,
@@ -228,12 +235,13 @@ const ApiDoc = () => {
       </Nav>
       <h2 style={{ margin: "40px 0" }}>Getting started</h2>
       <SyntaxHighlighter language="typescript" style={a11yDark}>
-        {`import createFileUploader, type { UploaderData } from "large-file-uploader";
+        {`import createUploader, type { UploaderData } from "large-file-uploader";
 
-const uploader = createFileUploader({
-    // upload中定义上传逻辑，它是createFileUploader唯一必须的配置，每次分片上传都会调用它
+const uploader = createUploader<number>({
+    // upload中定义上传逻辑，它是createUploader唯一必须的配置，每次分片上传都会调用它
     // 这里举了一个分片上传例子，后端利用id知道分片属于哪个文件
-    async upload({ chunks, start, end, size, hashSum }, customParams: number) {
+    async upload({ chunks, start, end, size, hashSum }, customParams) {
+      // type will is number
       let id = customParams;
       // 没有customParams代表第一次调用
       if (id === undefined) {
@@ -277,10 +285,16 @@ const uploader = createFileUploader({
     pause: () => void; // 暂停
     resume: () => void; // 继续
     remove: () => void; // 删除
+    update: (data: Partial<UploaderData>) => void; // 手动更新该项目的状态
   }
 */
 
-// 上传队列中所有文件项对应 uploadDataList: UploaderData[] 数组, 里面包含每个上传项各自的暂停、恢复、移除操作，分别是 uploadDataItem: UploaderData 里的 pause、resume、remove方法
+// 上传队列中所有文件项对应 uploadDataList: UploaderData[] 数组, 里面包含每个上传项各自的暂停、恢复、移除操作，分别是 uploadDataItem: UploaderData 里的 pause、resume、remove方法。
+// 其中还有一个 update 方法，用来更新该项的状态属性（ UploaderData ），正常情况下不需要使用，因为已经由库帮你管理了。只有两种情况需要：
+
+// 1. 你关闭了切片功能，因此 chunks 数组里只有一个完整的文件: file，由于 upload 完全交给了开发者做，库本身是不知道单个切片内部的上传进度的，这时开发者就可以使用 update 手动更新进度。
+
+// 2. 你不满足于以切片为粒度显示进度，你需要精确到单个切片内部的上传进度（库无法知道 upload 内部的事情），这时你可以使用 update 手动更新。
 `}
       </SyntaxHighlighter>
 

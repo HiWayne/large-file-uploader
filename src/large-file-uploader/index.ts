@@ -1,67 +1,20 @@
 import SparkMD5 from "spark-md5";
 import { db, FileDoc } from "./utils/storage";
-import { ProgressData, UploaderData } from "./type";
+import {
+  CreateUploader,
+  FullyLargeFileUploaderOptions,
+  LargeFileUploaderOptionalOptions,
+  LargeFileUploaderOptions,
+  ProgressData,
+  Upload,
+  UploaderData,
+} from "./type";
 import { workerFn } from "./utils/worker";
 import {
   createMultithread,
   createSetTaskToMultithreading,
 } from "./utils/multithreading";
 import { findFirstWaiting } from "./utils/findFirstWaiting";
-
-interface LargeFileUploaderOptionalOptions {
-  // 每个切片大小，单位字节，默认100kb
-  sliceSize: number;
-  // 最小可切片文件大小，单位字节
-  minSlicedFileSize: number;
-  // 每次上传的chunks数量（视后端接口而定）
-  numberOfChunks: number;
-  // 失败自动重试次数
-  retryCountLimit: number;
-  // 是否支持多选
-  multiple: boolean;
-  // 文件类型限制
-  accept: string;
-  // 是否开启离线缓存
-  offlineStorage: boolean;
-  // 离线缓存空间名称
-  spaceName: string;
-  // 选择后是否立即上传
-  immediately: boolean;
-  // 文件大小限制
-  sizeLimit: [number, number] | null;
-  // 线程数量
-  numberOfThreads: number;
-  // 最大请求数
-  maxNumberOfRequest: number;
-  // 缓存初始化完成回调
-  gotCache: (cacheList: UploaderData[], uploadDataList: UploaderData[]) => void;
-  // 上传进度回调函数
-  update: (uploadDataList: UploaderData[]) => void;
-  error: (uploadDataList: UploaderData[]) => void;
-  // 上传全部完成回调函数，result: true，data: UploaderData[]
-  success: (data: { result: boolean; data: UploaderData[] }) => void;
-  openHash: boolean;
-  checkHash: ((hash: string) => Promise<number | true>) | undefined;
-}
-
-interface LargeFileUploaderRequiredOptions<T> {
-  upload: (
-    uploadParams: {
-      chunks: Blob[];
-      start: number;
-      end: number;
-      size: number;
-      hashSum: string;
-    },
-    customParams: T
-  ) => Promise<T>;
-}
-
-type LargeFileUploaderOptions<T> = Partial<LargeFileUploaderOptionalOptions> &
-  LargeFileUploaderRequiredOptions<T>;
-
-type FullyLargeFileUploaderOptions<T> = LargeFileUploaderOptionalOptions &
-  LargeFileUploaderRequiredOptions<T>;
 
 const computeUploadDataList = (list: UploaderData[]) => {
   return list.filter((uploadData) => uploadData.status !== "cancel").reverse();
@@ -97,16 +50,7 @@ const autoUpload = <T>(
     maxNumberOfRequest,
   }: {
     idRef: { current: number | Promise<number> | undefined };
-    upload: (
-      uploadParams: {
-        chunks: Blob[];
-        start: number;
-        end: number;
-        size: number;
-        hashSum: string;
-      },
-      customParams: T
-    ) => Promise<T>;
+    upload: Upload<T>;
     updateUploadDataList: (
       index: number,
       progressData: Partial<UploaderData>
@@ -232,7 +176,15 @@ const autoUpload = <T>(
       size: length,
       hashSum,
     },
-    customParamsRef.current
+    customParamsRef.current,
+    (data) => {
+      if (data) {
+        updateUploadDataList(index, {
+          ...data,
+        });
+        update(computeUploadDataList(currentUploadListRef.current));
+      }
+    }
   )
     .then((data) => {
       if (suspendedRef.current || canceledRef.current) {
@@ -352,6 +304,7 @@ const createHiddenUploaderInput = (() => {
 
   return <T>(
     {
+      slice,
       sliceSize,
       minSlicedFileSize,
       numberOfChunks,
@@ -419,7 +372,8 @@ const createHiddenUploaderInput = (() => {
             let md5HexHash = "";
             const computeProgress = (start: number) => start / length;
 
-            if (size >= minSlicedFileSize) {
+            // 未开启切片或文件大小小于切片限制则将整个文件作为第一个切片
+            if (!slice || size >= minSlicedFileSize) {
               const sliceNumber = Math.ceil(size / sliceSize);
               const setTaskToMultithreading = createSetTaskToMultithreading(
                 workers,
@@ -666,6 +620,7 @@ const setDefaultOptions = <T>(
   largeFileUploaderOptions: LargeFileUploaderOptions<T>
 ): FullyLargeFileUploaderOptions<T> => {
   const defaultOptions: LargeFileUploaderOptionalOptions = {
+    slice: true,
     sliceSize: 100000,
     minSlicedFileSize: 1000000,
     numberOfChunks: 1,
@@ -747,7 +702,7 @@ const getOfflineFiles = async <T>(
   });
 };
 
-const createFileUploader = <T>(
+const createFileUploader: CreateUploader = <T = never>(
   largeFileUploaderOptions: LargeFileUploaderOptions<T>
 ) => {
   const options = setDefaultOptions<T>(largeFileUploaderOptions);

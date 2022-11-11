@@ -1,7 +1,7 @@
 {
   "name": "large-file-uploader",
   "description": "file uploader, supporting file segmentation, Resume from break point, Offline storage",
-  "version": "2.0.5",
+  "version": "2.1.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc && rollup -c rollup.config.js && vite build",

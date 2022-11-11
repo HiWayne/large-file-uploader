@@ -183,7 +183,7 @@ const Demo = () => {
     );
 
   useEffect(() => {
-    const normalUploader = createFileUploader({
+    const normalUploader = createFileUploader<number>({
       offlineStorage,
       immediately,
       sizeLimit,
@@ -197,7 +197,7 @@ const Demo = () => {
       spaceName: "normal",
       minSlicedFileSize: 5000,
       sliceSize: 1000,
-      async upload({ chunks, start, end, size }, customParams: number) {
+      async upload({ chunks, start, end, size }, customParams) {
         let id = customParams;
         // 分块上传后端可能需要一个id来记住上传的文件，所以开始先申请一个id
         if (customParams === undefined) {
@@ -248,7 +248,7 @@ const Demo = () => {
         setMaybeFailureList(uploadDataList);
       },
       update(uploadDataList) {
-        console.log('update')
+        console.log("update");
         setMaybeFailureList(uploadDataList);
       },
     });
