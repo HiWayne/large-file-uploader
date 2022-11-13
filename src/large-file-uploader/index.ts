@@ -16,6 +16,8 @@ import {
 } from "./utils/multithreading";
 import { findFirstWaiting } from "./utils/findFirstWaiting";
 
+export * from "./type";
+
 const computeUploadDataList = (list: UploaderData[]) => {
   return list.filter((uploadData) => uploadData.status !== "cancel").reverse();
 };
