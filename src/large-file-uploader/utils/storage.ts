@@ -17,6 +17,7 @@ export interface FileDoc {
   customParams?: any;
   spaceName: string;
   hashSum: string;
+  createTimestamp: number;
 }
 
 export class FileCacheDB extends Dexie {

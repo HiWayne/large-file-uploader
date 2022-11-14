@@ -8,8 +8,10 @@ export interface ProgressData {
     | "cancel"
     | "waiting";
   progress: number;
+  total: number;
   file: File;
   result: any;
+  createTimestamp: number;
   isCache?: boolean;
 }
 
@@ -89,4 +91,5 @@ export type CreateUploader = <T>(
 
 export interface CreateUploaderResponse {
   uploadFile: () => void;
+  giveFilesToUpload: (files: File[] | FileList) => void;
 }

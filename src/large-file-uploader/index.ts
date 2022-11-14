@@ -294,9 +294,14 @@ const autoUpload = <T>(
     });
 };
 
-const createHiddenUploaderInput = (() => {
+const createHiddenUploaderInputOrCreateDirectlyUpload = (
+  files?: File[] | FileList
+) => {
   let input: HTMLInputElement;
-  let handleChange: (event: Event) => void;
+  let handleChange: (
+    event: Event | File[] | FileList,
+    directly?: boolean
+  ) => void;
 
   const scriptBlob = new Blob([`(${workerFn})()`], {
     type: "application/javascript",
@@ -330,15 +335,23 @@ const createHiddenUploaderInput = (() => {
   ) => {
     const workers =
       numberOfThreads > 1 ? createMultithread(blobURL, numberOfThreads) : [];
-    handleChange = async (event: Event) => {
-      if (event.target) {
-        const files = Array.from(
-          (event.target as HTMLInputElement).files!
-        ).filter((file) =>
-          sizeLimit
-            ? file.size >= sizeLimit[0] && file.size <= sizeLimit[1]
-            : true
-        );
+    // 可以作为input事件，也可直接传入文件
+    handleChange = async (
+      event: Event | File[] | FileList,
+      directly?: boolean
+    ) => {
+      if (directly || (event as Event).target) {
+        const files = directly
+          ? Array.isArray(event)
+            ? event
+            : Array.from(event as FileList)
+          : Array.from(
+              ((event as Event).target as HTMLInputElement).files!
+            ).filter((file) =>
+              sizeLimit
+                ? file.size >= sizeLimit[0] && file.size <= sizeLimit[1]
+                : true
+            );
         if (files) {
           const currentNumberOfRequestRef: { current: number } = { current: 0 };
           const createUploaderData = (index: number): ProgressData => ({
@@ -346,6 +359,8 @@ const createHiddenUploaderInput = (() => {
             progress: 0,
             file: files[index],
             result: null,
+            createTimestamp: new Date().getTime(),
+            total: 0,
           });
           const progressList = files.map((_, index) => {
             const uploader = createUploaderData(index);
@@ -435,6 +450,8 @@ const createHiddenUploaderInput = (() => {
               chunks.push(file);
               length = chunks.length;
             }
+            updateUploadDataList(index, { total: length });
+            update(computeUploadDataList(currentUploadList));
             const _retryCountRef = { current: 0 };
             const suspendedRef = { current: false };
             const canceledRef = { current: false };
@@ -562,6 +579,7 @@ const createHiddenUploaderInput = (() => {
                   customParams: customParamsRef.current,
                   spaceName: spaceName || "",
                   hashSum: md5HexHash,
+                  createTimestamp: progressList[index].createTimestamp,
                 }) as Promise<number>;
 
                 idRef.current.then((id) => {
@@ -593,19 +611,23 @@ const createHiddenUploaderInput = (() => {
         }
       }
     };
-    if (input) {
-      input.value = "";
+    if (files) {
+      handleChange(files, true);
+    } else {
+      if (input) {
+        input.value = "";
+        return input;
+      }
+      input = document.createElement("input");
+      input.style.display = "none";
+      input.type = "file";
+      input.multiple = multiple ? true : false;
+      input.accept = accept;
+      input.addEventListener("change", (event) => handleChange(event));
       return input;
     }
-    input = document.createElement("input");
-    input.style.display = "none";
-    input.type = "file";
-    input.multiple = multiple ? true : false;
-    input.accept = accept;
-    input.addEventListener("change", (event) => handleChange(event));
-    return input;
   };
-})();
+};
 
 const include = (parent: HTMLElement, child: Node) => {
   const children = parent.children;
@@ -657,12 +679,13 @@ const uploadFile = <T>(
   const options = setDefaultOptions<T>(largeFileUploaderOptions);
 
   const body = document.body;
-  const input = createHiddenUploaderInput<T>(
+  const createInput = createHiddenUploaderInputOrCreateDirectlyUpload();
+  const input = createInput<T>(
     options,
     newestUploadDataList,
     uploadPromiseResolve,
     uploadPromiseReject
-  );
+  ) as HTMLInputElement;
   if (!include(body, input)) {
     document.body.appendChild(input);
   }
@@ -692,6 +715,8 @@ const getOfflineFiles = async <T>(
       isCache: true,
       file: fileObject.file,
       result: null,
+      createTimestamp: fileObject.createTimestamp,
+      total: fileObject.chunks.length,
     } as any;
     return {
       name: fileObject.file.name,
@@ -699,6 +724,8 @@ const getOfflineFiles = async <T>(
       status: "suspended" as "suspended",
       progress: fileObject.start / fileObject.chunks.length,
       result: null,
+      createTimestamp: fileObject.createTimestamp,
+      total: fileObject.chunks.length,
       fileObject,
     };
   });
@@ -868,6 +895,16 @@ const createFileUploader: CreateUploader = <T = never>(
         uploadPromiseResolve,
         uploadPromiseReject
       ),
+    giveFilesToUpload: (files: File[] | FileList) => {
+      const uploadDirectly =
+        createHiddenUploaderInputOrCreateDirectlyUpload(files);
+      uploadDirectly<T>(
+        options,
+        currentUploadList,
+        uploadPromiseResolve,
+        uploadPromiseReject
+      ) as HTMLInputElement;
+    },
   };
 };
 

@@ -10,7 +10,10 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { Input, Switch, InputNumber } from "antd";
 import createFileUploader from "../large-file-uploader";
-import type { UploaderData } from "../large-file-uploader/type";
+import type {
+  CreateUploaderResponse,
+  UploaderData,
+} from "../large-file-uploader/type";
 import { applyUploadId, uploadChunks, uploadChunksMaybeFailure } from "../mock";
 import deleteIcon from "../assets/delete.svg";
 import { Loading, SphericalProgress } from "../components";
@@ -166,10 +169,11 @@ const Demo = () => {
   const [cacheLoadedInMaybeFailure, setCacheLoadedInMaybeFailure] =
     useState(false);
 
-  const normalUploadRef: MutableRefObject<() => void> = useRef(null as any);
-  const maybeFailureUploadRef: MutableRefObject<() => void> = useRef(
+  const normalUploaderRef: MutableRefObject<CreateUploaderResponse> = useRef(
     null as any
   );
+  const maybeFailureUploadRef: MutableRefObject<CreateUploaderResponse> =
+    useRef(null as any);
 
   const checkHash: ((hash: string) => Promise<number | true>) | undefined =
     useMemo(
@@ -215,7 +219,7 @@ const Demo = () => {
         setList(uploadDataList);
       },
     });
-    normalUploadRef.current = normalUploader.uploadFile;
+    normalUploaderRef.current = normalUploader;
     const maybeFailureUploader = createFileUploader<number>({
       offlineStorage,
       immediately,
@@ -252,7 +256,7 @@ const Demo = () => {
         setMaybeFailureList(uploadDataList);
       },
     });
-    maybeFailureUploadRef.current = maybeFailureUploader.uploadFile;
+    maybeFailureUploadRef.current = maybeFailureUploader;
 
     return () => {
       clearAll();
@@ -273,14 +277,14 @@ const Demo = () => {
   ]);
 
   const handleUpload = useCallback(() => {
-    if (normalUploadRef.current) {
-      normalUploadRef.current();
+    if (normalUploaderRef.current) {
+      normalUploaderRef.current.uploadFile();
     }
   }, []);
 
   const handleUploadMaybeFailure = useCallback(() => {
     if (maybeFailureUploadRef.current) {
-      maybeFailureUploadRef.current();
+      maybeFailureUploadRef.current.uploadFile();
     }
   }, []);
 

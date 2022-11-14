@@ -83,8 +83,10 @@ const uploader = createUploader<number>({
   {
     status: "completed" | "failure" | "uploading" | "initialization" | "suspended" | "cancel" | "waiting"; // 上传状态
     progress: number; // 当前上传进度 0~1
+    total: number; // 切片总数
     file: File; // 原文件
     result: any; // 上传完成后的后端返回结果
+    createTimestamp: number; // 上传项创建时间
     isCache?: boolean; // 是否是缓存
     pause: () => void; // 暂停
     resume: () => void; // 继续
@@ -94,13 +96,15 @@ const uploader = createUploader<number>({
 */
 ```
 
-拿到上述代码的 `uploader` 后，调用 `uploader.uploadFile`，它会调起文件选择器。选择完文件后自动开始上传（你也可以使用 immediately: false 配置，这时仅仅将文件设为暂停状态放入队列中，由用户决定何时开始上传）
+**拿到上述代码的 `uploader` 后，调用 `uploader.uploadFile`，它会调起文件选择器。选择完文件后自动开始上传（你也可以使用 immediately: false 配置，这时仅仅将文件设为暂停状态放入队列中，由用户决定何时开始上传，更多配置请查阅 api 文档）**
 
-上传队列中所有文件项对应 `uploadDataList: UploaderData[]` 数组, 里面包含每个上传项各自的暂停、恢复、移除操作，分别是 `uploadDataItem: UploaderData` 里的 `pause`、`resume`、`remove`方法。其中还有一个`update`方法，用来更新该项的状态属性（`UploaderData`），正常情况下不需要使用，因为已经由库帮你管理了。只有两种情况需要：
+**由于本库只关心状态数据，如果你想做文件拖拽上传，你需要自己完成拖拽 UI 交互。在你拿到文件后，你可以使用 `uploader.giveFilesToUpload(files: FileList | File[])` 上传**
 
-1. 你关闭了切片功能，因此 chunks 数组里只有一个完整的文件: file，由于 upload 完全交给了开发者做，库本身是不知道单个切片内部的上传进度的，这时开发者就可以使用`update`手动更新进度。
+上传队列中所有文件项对应上述代码中的 `uploadDataList: UploaderData[]` 数组。里面包含每个上传项各自的暂停、恢复、移除、更新操作，分别是 `uploadDataItem: UploaderData` 里的 `pause`、`resume`、`remove`、`update`方法。其中`update`方法，用来更新该项的各种状态属性（即`UploaderData`类型），正常情况下不需要使用，因为已经由库帮你管理了。只有两种情况需要：
 
-2. 你不满足于以切片为粒度显示进度，你需要精确到单个切片内部的上传进度（库无法知道 upload 内部的事情），这时你可以使用 update 手动更新。
+1. 你关闭了切片功能，因此 chunks 数组里只有一个完整的文件: file，相当于只有 1 个切片，由于 upload 请求完全交给了开发者做，库本身是不知道单个切片内部的上传进度的，这时开发者就可以使用`update({ progress: number })`手动更新进度。
+
+2. 你不满足于以切片为粒度显示进度，你需要精确到单个切片内部的上传进度（因为库无法知道开发者自定义的 upload 内部的事情），这时你可以使用 update 手动更新。（比如文件上传当前进度 progress 是 0.5，切片总数 total 是 10，upload 内部获知正在上传的切片已经上传到 50%。因此，文件上传进度 progress 应该更新到 0.5 + 1 / 10 × 50%，即 update({ progress: 0.55 })）
 
 ## Api Document
 
