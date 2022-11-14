@@ -188,6 +188,7 @@ const Demo = () => {
 
   useEffect(() => {
     const normalUploader = createFileUploader<number>({
+      slice: false,
       offlineStorage,
       immediately,
       sizeLimit,

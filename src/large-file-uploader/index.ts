@@ -65,7 +65,7 @@ const autoUpload = <T>(
     length: number;
     index: number;
     numberOfChunks: number;
-    chunks: Blob[];
+    chunks: (Blob | File)[];
     customParamsRef: { current: T };
     retryCountLimit: number;
     _retryCountRef: { current: number };
@@ -382,15 +382,15 @@ const createHiddenUploaderInputOrCreateDirectlyUpload = (
           update(computeUploadDataList(currentUploadList));
           const uploadList = files.map(async (file, index) => {
             const spark = new SparkMD5();
-            const chunks: Blob[] = [];
+            const chunks: (Blob | File)[] = [];
             const size = file.size;
             const sliceStartRef = { current: 0 };
             let length = 0;
             let md5HexHash = "";
             const computeProgress = (start: number) => start / length;
 
-            // 未开启切片或文件大小小于切片限制则将整个文件作为第一个切片
-            if (!slice || size >= minSlicedFileSize) {
+            // 未开启切片或文件大小小于切片限制则将整个文件作为第一个切片, chunk: [File]
+            if (slice && size >= minSlicedFileSize) {
               const sliceNumber = Math.ceil(size / sliceSize);
               const setTaskToMultithreading = createSetTaskToMultithreading(
                 workers,
