@@ -1,4 +1,3 @@
-import path from "path";
 import rimraf from "rimraf";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
@@ -53,6 +52,7 @@ export default [
       commonjs(),
       babel,
     ],
+    external: ["dexie", "spark-md5"],
   },
   {
     input: "./src/large-file-uploader/index.ts",
