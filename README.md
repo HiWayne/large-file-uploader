@@ -22,8 +22,8 @@
 ## Feature
 
 - 断点续传，不必重头再来
-- 支持秒传功能
-- 基于 indexedDB 的文件缓存，离线也能恢复进度
+- 支持二次秒传功能
+- 基于 indexedDB 的离线缓存，断网也能恢复进度
 - 多线程计算，面对大文件处理更快
 - 只提供下载队列的状态数据，你可以自由定制 UI
 - 丰富的配置，你可以限制文件类型、每个切片大小、线程数、请求并发数、是否开启离线缓存等
@@ -32,7 +32,7 @@
 
 [在线体验](https://hiwayne.github.io/large-file-uploader/site/?demo)
 
-在线体验的实现代码在[这里](https://github.com/HiWayne/large-file-uploader/blob/master/src/pages/Demo.tsx)
+在线体验的代码实现在[这里](https://github.com/HiWayne/large-file-uploader/blob/master/src/pages/Demo.tsx)
 
 ## Getting Started
 
@@ -112,4 +112,4 @@ const uploader = createUploader<number>({
 
 ## Tip
 
-大文件离线存储或缓存频繁更新，在某些浏览器下响应非常慢，可能存在读取/更新不及时的现象（说的就是你 Chrome ），在 Firefox 中表现较好。
+离线缓存功能如果开启，上传过程中可能会大量占用你的硬盘空间（视上传的文件大小而定），在上传完成或者取消上传后会被自动删除。另外，大文件在 indexedDB 的离线储存和离线更新，在某些浏览器下响应可能较慢（并不会阻塞 UI），可能存在读取/更新不及时的现象（例如，实际上传进度已经到 50%，缓存只记录到 40%）。在 Chrome 中容易出现，在 Firefox 中表现较好。因此离线缓存功能 `offlineStorage: boolean` 是默认关闭的，如果你的场景很少有大文件或者你可以接受可能发生的离线数据更新不及时，则可以打开。

@@ -188,7 +188,6 @@ const Demo = () => {
 
   useEffect(() => {
     const normalUploader = createFileUploader<number>({
-      slice: false,
       offlineStorage,
       immediately,
       sizeLimit,
@@ -253,7 +252,6 @@ const Demo = () => {
         setMaybeFailureList(uploadDataList);
       },
       update(uploadDataList) {
-        console.log("update");
         setMaybeFailureList(uploadDataList);
       },
     });
